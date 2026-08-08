@@ -16,21 +16,24 @@ sprint: SPL-S0
 Normative spec: `../../../../docs/architecture/SPLENDOR_ARCHITECTURE_SPEC.md`. Decisions:
 `../../../../docs/DECISIONS.md`. Acceptance rules: `../../planset/03_ACCEPTANCE_FRAMEWORK.md`.
 
-**Status: `planned`** — this SCOPE is written; it flips to `active` when the fork is cloned (WP-0) and the
-owner greenlights. The measured-reality table below is filled as WP-0 lands.
+**Status: `active` (WP-0 in progress, 2026-08-08)** — fork cloned; planning scaffold reconciled onto branch
+`chore/splendor-planning-scaffold`; the build is being verified via `make deps`. Measured-reality rows below
+updated with actual findings.
 
 ## Measured against reality before writing this
 
-| What the plan assumes | What is actually true (to be checked in WP-0) |
+| What the plan assumes | What is actually true (checked 2026-08-08) |
 |---|---|
-| The fork is cloneable + buildable locally | Fork exists (`SaulBuilds/splendor`, ~1.3 GB). **Not yet cloned** ([D-8.6]). Blender's CMake build + `lib/` deps not yet fetched/verified on this Linux/NVIDIA box. **Unverified.** |
-| We can add a Python extension without a C diff | Blender's extensions platform (4.2+) supports this; **to confirm against the exact fork revision.** |
-| An embedded MCP/agent bridge may need a C-level hook | Unknown until we see where a long-lived in-process server can live without fighting Blender's event loop. **To investigate in WP-3.** |
-| Local models are reachable offline | llama.cpp/Ollama present on dev box? **To verify.** OpenAI-compatible shape assumed as the local lingua franca. |
-| CitrateNetwork testnet + pinning are reachable | Endpoints/credentials for testnet + Citrate pinning **to confirm** before any P7 seam claims liveness. |
+| The fork is cloneable + buildable locally | Cloned OK. **This box is aarch64 (ARM64) Linux** (Grace-class: 20 cores, 121 GB RAM). **Verified false for the easy path:** Blender publishes **no `linux_arm64` precompiled libraries** — `.gitmodules` has `linux_x64`/`macos_arm64`/`windows_x64`/`windows_arm64` only. Default build hard-errors on missing `LIBDIR`. **Owner call (2026-08-08): build via `make deps`** (compile all deps from source; 53 apt prereqs installed; multi-hour; in progress). |
+| The GitHub fork carries what's needed to build | **False.** Forking the mirror does **not** inherit Blender's Git-LFS objects (6,755 paths → `404` on clone). The build *requires* them (`cmake` fails: "incomplete startup blend"). **Resolved:** `make update` adds a `projects.blender.org` LFS fallback; `git lfs pull lfs-fallback` materialized them (`startup.blend` real, 822 MB LFS cache). |
+| GPU/OIDN toolchain matches reference | **Divergence flagged:** box has **CUDA 13.0**; Blender reference version-locks **12.8** for OpenImageDenoise. If OIDN's `nvcc` step fails under 13.0, disable that one dep and continue (make deps is resumable). |
+| We can add a Python extension without a C diff | Blender extensions platform (4.2+) present in the fork; **to confirm** against this revision when the build lands. |
+| An embedded MCP/agent bridge may need a C-level hook | Unknown until a long-lived in-process server is placed without fighting Blender's event loop. **To investigate in WP S0.3/S0.4.** |
+| Local models reachable offline | OpenAI-compatible shape assumed as the local lingua franca. llama.cpp/Ollama presence **to verify** at S0.5. |
+| CitrateNetwork testnet + pinning reachable | Endpoints/credentials **to confirm** before any P7 seam claims liveness (S0.8). |
 
-> Per the framework (§4), each row above is resolved to a fact in WP-0 and the table updated **before** the
-> dependent WP is built. A seam may not claim liveness against a dependency whose reachability is unverified.
+> Per the framework (§4), each row is resolved to a fact and the table updated **before** the dependent WP is
+> built. A seam may not claim liveness against a dependency whose reachability is unverified.
 
 ## Work packages — each a real seam with a negative control
 
@@ -39,8 +42,8 @@ fails on a broken build (`03_ACCEPTANCE_FRAMEWORK.md` §3). None of these is a f
 
 | # | WP | Deliverable (thin but real) | Negative control | Status |
 |---|---|---|---|---|
-| **S0.0** | Clone + reconcile | Fork cloned; `docs/` + `.agentile/` folded onto a branch; owner merges. Reconciliation per AGENT_ENTRY. | — (enabling) | ☐ |
-| **S0.1** | Build on 3 platforms + CI | Splendor builds on Linux/Windows/macOS; a CI job produces artifacts; GPL source-publish step present. | A build with the retro shader syntactically broken **fails CI**, not silently skips. | ☐ |
+| **S0.0** | Clone + reconcile | Fork cloned; `docs/` + `.agentile/` folded onto a branch; owner merges. Reconciliation per AGENT_ENTRY. | — (enabling) | ☑ cloned + branch `chore/splendor-planning-scaffold` (LFS via fallback); **owner merge pending** |
+| **S0.1** | Build on 3 platforms + CI | Splendor builds on Linux/Windows/macOS; a CI job produces artifacts; GPL source-publish step present. | A build with the retro shader syntactically broken **fails CI**, not silently skips. | ◐ **Linux/aarch64 build in progress via `make deps`** (no precompiled libs for this platform — see reality table). Win/macOS + CI not yet started. |
 | **S0.2** | One retro shader (P1 seam) | A single real retro effect (palette quantize *or* affine warp) as a GPU pass toggled in the viewport. | Palette set to 17 on a "≤16" target is detectable by the deterministic scorer (feeds S0.6). | ☐ |
 | **S0.3** | Governed action API + HIC gate (P2/P6 seam) | One typed DSL intent (`set_palette`/`snap_vertices`) routed through the single action API; every call passes the HIC gate and emits a decision record. | Removing the grant flips the action to `require-approval`; a second, un-gated code path is caught by a source-scan test (I-1). | ☐ |
 | **S0.4** | MCP server + client (P2 seam) | Splendor exposes the S0.3 intent as one MCP tool (external Claude Code can call it) **and** consumes one external MCP tool. Same governed path as in-app. | Calling the MCP tool without a grant yields the same `ungoverned`/`require-approval` behavior as in-app — not a bypass. | ☐ |
