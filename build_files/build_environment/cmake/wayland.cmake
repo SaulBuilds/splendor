@@ -20,6 +20,11 @@ ExternalProject_Add(external_wayland
     ${CMAKE_COMMAND} -E env ${WAYLAND_PKG_ENV}
     ${MESON} setup
       --prefix ${LIBDIR}/wayland
+      # Splendor WP-0 fix (2026-08-08): pin libdir to `lib64`. The harvest below
+      # and vulkan/weston/wayland_protocols all expect `wayland/lib64` (the
+      # Rocky/RHEL default). On Ubuntu/Debian aarch64 meson otherwise defaults to
+      # multiarch `lib/aarch64-linux-gnu`, so the `wayland/lib64` harvest fails.
+      --libdir lib64
       ${MESON_BUILD_TYPE}
       ${WAYLAND_EXTRA_OPTIONS}
       .
