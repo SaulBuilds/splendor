@@ -36,3 +36,24 @@ becomes an inconvenient surprise at a gate three sprints later.
 A footnote that may yet matter: this box has CUDA 13.0; Blender's reference environment version-locks 12.8
 for OpenImageDenoise. If the OIDN dep chokes on the newer toolkit, that is the next thing this journal's
 sequel will be about.
+
+## Sequel: it wasn't OIDN, it was OSL — and five more after it
+
+The CUDA footnote came true, but not where I guessed. OpenImageDenoise builds CPU-only on ARM (its GPU
+paths are guarded off), so it was fine. **OSL** was the one: its dep build hardcodes `CUDA_TARGET_ARCH=sm_50`
+for OptiX, and **CUDA 13 — which a GB10 Blackwell GPU requires — removed `sm_50` entirely.** "1 error
+generated when compiling for sm_50." The machine is a Grace-Blackwell (GB10, compute 12.1), not the Grace
+I'd assumed. GPU OSL is not needed to prove the build, so I disabled OptiX (CPU OSL) and deferred Blackwell
+GPU enablement to its own task.
+
+Then the tail: `make deps` finished (58 libs, 1.5 GB) only after staging GMP from a GNU mirror (gmplib.org
+timed out), installing `libx11-xcb-dev` (weston), and pinning wayland's meson `--libdir lib64` (Ubuntu
+multiarch put it in `lib/aarch64-linux-gnu`; the harvest wanted `lib64`). Blender itself then refused GCC
+13.3 (min 14), and after installing gcc-14 it compiled to 100% and died at the *final link* on
+`drmFreeVersion` — the from-source ffmpeg needed `-ldrm`. Add that, and: a 236 MB binary, Blender 5.3.0
+Alpha, launches headless, renders a frame.
+
+Seven distinct blockers, zero of them about Splendor. Every single one lived in the gap between "fork a
+GPL project" and "that GPL project has never shipped a Linux-aarch64-Blackwell-Ubuntu build." The plan was
+never wrong; the ground was just unmapped, and the only way to map it was to walk it. That is WP-0's entire
+reason to exist — and it is why the first sprint builds a spine before anyone designs a feature on top of it.

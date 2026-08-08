@@ -16,15 +16,17 @@ sprint: SPL-S0
 Normative spec: `../../../../docs/architecture/SPLENDOR_ARCHITECTURE_SPEC.md`. Decisions:
 `../../../../docs/DECISIONS.md`. Acceptance rules: `../../planset/03_ACCEPTANCE_FRAMEWORK.md`.
 
-**Status: `active` (WP-0 in progress, 2026-08-08)** — fork cloned; planning scaffold reconciled onto branch
-`chore/splendor-planning-scaffold`; the build is being verified via `make deps`. Measured-reality rows below
-updated with actual findings.
+**Status: `active` (2026-08-08)** — fork cloned; planning scaffold reconciled onto branch
+`chore/splendor-planning-scaffold`. **The Linux/aarch64 build is VERIFIED**: Splendor builds from source
+(base **Blender 5.3.0 Alpha**), produces a 236 MB `blender` binary, launches headless, and passes a real
+EEVEE render smoke test. Windows/macOS + CI remain. Measured-reality rows below carry the actual findings.
 
 ## Measured against reality before writing this
 
 | What the plan assumes | What is actually true (checked 2026-08-08) |
 |---|---|
-| The fork is cloneable + buildable locally | Cloned OK. **This box is aarch64 (ARM64) Linux** (Grace-class: 20 cores, 121 GB RAM). **Verified false for the easy path:** Blender publishes **no `linux_arm64` precompiled libraries** — `.gitmodules` has `linux_x64`/`macos_arm64`/`windows_x64`/`windows_arm64` only. Default build hard-errors on missing `LIBDIR`. **Owner call (2026-08-08): build via `make deps`** (compile all deps from source; 53 apt prereqs installed; multi-hour; in progress). |
+| The fork is cloneable + buildable locally | Cloned OK. **This box is aarch64 + NVIDIA GB10 (Grace-Blackwell, compute 12.1)**, 20 cores, 121 GB RAM. Blender publishes **no `linux_arm64` precompiled libraries** (`.gitmodules`: x64/macos_arm64/win only). **Owner call: build via `make deps`** — DONE (exit 0, `lib/linux_arm64` = 1.5 GB, 58 libs). **Splendor then built + launched (base Blender 5.3.0 Alpha), EEVEE render smoke test passed.** Required 7 fixes: LFS fallback; GMP staged from GNU; **GCC 14** (13.3 < min 14.0); **libx11-xcb-dev** (weston); **wayland `--libdir lib64`** (Ubuntu multiarch); **link libdrm to ffmpeg**; **OSL OptiX off** (sm_50 gone in CUDA 13). Build-file fixes committed `df9d46b`. |
+| GPU compute (Cycles CUDA/OptiX) works on this Blackwell box | **Deferred, not verified.** This WP-0 build has GPU device backends OFF (OptiX/HIP/oneAPI/CUDA-binaries). Cycles-CPU + EEVEE proven. GB10/Blackwell (sm_120/121) + CUDA 13 GPU enablement (incl. OSL OptiX) is its own task, flagged in the journal + osl.cmake. |
 | The GitHub fork carries what's needed to build | **False.** Forking the mirror does **not** inherit Blender's Git-LFS objects (6,755 paths → `404` on clone). The build *requires* them (`cmake` fails: "incomplete startup blend"). **Resolved:** `make update` adds a `projects.blender.org` LFS fallback; `git lfs pull lfs-fallback` materialized them (`startup.blend` real, 822 MB LFS cache). |
 | GPU/OIDN toolchain matches reference | **Divergence flagged:** box has **CUDA 13.0**; Blender reference version-locks **12.8** for OpenImageDenoise. If OIDN's `nvcc` step fails under 13.0, disable that one dep and continue (make deps is resumable). |
 | We can add a Python extension without a C diff | Blender extensions platform (4.2+) present in the fork; **to confirm** against this revision when the build lands. |
@@ -43,7 +45,7 @@ fails on a broken build (`03_ACCEPTANCE_FRAMEWORK.md` §3). None of these is a f
 | # | WP | Deliverable (thin but real) | Negative control | Status |
 |---|---|---|---|---|
 | **S0.0** | Clone + reconcile | Fork cloned; `docs/` + `.agentile/` folded onto a branch; owner merges. Reconciliation per AGENT_ENTRY. | — (enabling) | ☑ cloned + branch `chore/splendor-planning-scaffold` (LFS via fallback); **owner merge pending** |
-| **S0.1** | Build on 3 platforms + CI | Splendor builds on Linux/Windows/macOS; a CI job produces artifacts; GPL source-publish step present. | A build with the retro shader syntactically broken **fails CI**, not silently skips. | ◐ **Linux/aarch64 build in progress via `make deps`** (no precompiled libs for this platform — see reality table). Win/macOS + CI not yet started. |
+| **S0.1** | Build on 3 platforms + CI | Splendor builds on Linux/Windows/macOS; a CI job produces artifacts; GPL source-publish step present. | A build with the retro shader syntactically broken **fails CI**, not silently skips. | ◐ **Linux/aarch64 VERIFIED** (builds + launches + EEVEE render smoke test passes; base Blender 5.3.0 Alpha; fixes in `df9d46b`). **Windows/macOS + CI + the negative-control shader test still to do.** |
 | **S0.2** | One retro shader (P1 seam) | A single real retro effect (palette quantize *or* affine warp) as a GPU pass toggled in the viewport. | Palette set to 17 on a "≤16" target is detectable by the deterministic scorer (feeds S0.6). | ☐ |
 | **S0.3** | Governed action API + HIC gate (P2/P6 seam) | One typed DSL intent (`set_palette`/`snap_vertices`) routed through the single action API; every call passes the HIC gate and emits a decision record. | Removing the grant flips the action to `require-approval`; a second, un-gated code path is caught by a source-scan test (I-1). | ☐ |
 | **S0.4** | MCP server + client (P2 seam) | Splendor exposes the S0.3 intent as one MCP tool (external Claude Code can call it) **and** consumes one external MCP tool. Same governed path as in-app. | Calling the MCP tool without a grant yields the same `ungoverned`/`require-approval` behavior as in-app — not a bypass. | ☐ |
@@ -51,7 +53,7 @@ fails on a broken build (`03_ACCEPTANCE_FRAMEWORK.md` §3). None of these is a f
 | **S0.6** | Eval SDK boundary (P4 seam) | The Eval SDK, importable standalone, scores one output with one deterministic criterion (tri/palette) and records it reproducibly under a seed. | Corrupting the reference/criterion drops the score below threshold; a fixed-seed rerun is bit-identical (repro criterion). | ☐ |
 | **S0.7** | Node/edge ⇄ LangGraph seam (P5 seam) | One agent-workflow node graph (prompt→model→eval) serializes to a LangGraph-compatible artifact and round-trips back to the same graph. | A hand-edited invalid graph fails validation on import rather than loading a broken graph. | ☐ |
 | **S0.8** | Chain/pinning/identity adapter interface (P7 seam) | The composable chain interface + a pin/attest call against **Citrate testnet + pinning** (or an honest error if unreachable per WP-0). AA sign-in stubbed *honestly* (named "not yet", not faked). | A tampered asset fails hash verification on retrieval; an unreachable endpoint shows an honest error, never a fake success. | ☐ |
-| **S0.9** | Upstream-diff surface report | A report of the C/C++ diff introduced vs upstream Blender (Rule 7 cost tracking) + justification per diff. | — (a file, not a claim: the report exists and lists each C change) | ☐ |
+| **S0.9** | Upstream-diff surface report | A report of the C/C++ diff introduced vs upstream Blender (Rule 7 cost tracking) + justification per diff. | — (a file, not a claim: the report exists and lists each C change) | ◐ First 3 build-file diffs recorded in commit `df9d46b` (osl/wayland/platform_unix, each justified). A standing report file still to be created. |
 
 ## Exit gate (defined now, not at close)
 
