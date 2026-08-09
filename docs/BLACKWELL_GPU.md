@@ -12,6 +12,10 @@ The dev box is an NVIDIA **GB10** (Grace-Blackwell, compute 12.1 → `sm_121`), 
 ## Status — CUDA VERIFIED (2026-08-09)
 - **CUDA device detected out of the box** — `WITH_CYCLES_DEVICE_CUDA=ON` (default). Cycles lists `NVIDIA GB10 · CUDA`.
 - **GPU rendering works** — Cycles path-traces on the GB10. Proof: `docs/design/gpu-render-gb10.png` (a 64px Cycles **GPU** render of the default cube).
+- **Precompiled build VERIFIED (2026-08-09)** — a `-DWITH_CYCLES_CUDA_BINARIES=ON -DCYCLES_CUDA_BINARIES_ARCH=sm_121`
+  build installs `kernel_sm_121.cubin.zst` (32.5 MB) to `bin/5.3/scripts/addons_core/cycles/lib/`; a GPU render
+  with the kernel cache **cleared** completes in **0.88 s** (vs ~5 min runtime compile) — proving the
+  precompiled kernel is loaded, not recompiled. Production-ready.
 - **First render is slow** — the WP-0 binary ships without precompiled kernels, so Cycles compiles the `sm_121`
   megakernel at runtime with `ptxas` (~5 min the first time; cached after).
 
