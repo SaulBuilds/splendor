@@ -56,6 +56,17 @@ def main():
     except SignerUnavailable as exc:
         check("signer" in str(exc).lower(), "attest raised SignerUnavailable (mentions the signer)")
 
+    print("[2b] Live recorder-authorization reads (skipped if chain unreachable)")
+    if chain.reachable():
+        gov = chain.governance()
+        check(gov.startswith("0x") and len(gov) == 42, f"governance() reads an address ({gov})")
+        check(chain.is_authorized_recorder(gov) is True,
+              "governance is an authorized recorder (constructor invariant)")
+        check(chain.is_authorized_recorder("0x000000000000000000000000000000000000dEaD") is False,
+              "an arbitrary address is not an authorized recorder")
+    else:
+        print("     SKIP — chain unreachable (offline)")
+
     if not _HAVE_ETH:
         print("[3] SKIP — eth_account/eth_abi absent; signer encode/send checks need the EVM stack")
         return _finish()

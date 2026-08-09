@@ -226,3 +226,14 @@ live-chain failure; skip-safe without the EVM stack):
 python3 tests/splendor/test_s0_9_signer.py
 ```
 Chain **reads** (`chain_id`, `block_number`) need no signer and work today.
+
+**Whitelisting a recorder** (governance ceremony). `AgentDecisionRegistry.setAuthorizedRecorder` is
+`onlyGovernance`; the AgentDecisionRegistry's governor is the federation deployer. This is a
+HUMAN-IN-CONTROL ceremony — the governance key stays in its owner's environment:
+```
+# Read-only status (no key):
+python3 scripts/signers/citrate_authorize_recorder.py 0x<recorder> --check
+# Authorize (governance key in YOUR env; e.g. a foundry keystore via cast, or CITRATE_GOVERNANCE_KEY):
+CITRATE_GOVERNANCE_KEY=0x<governor key> python3 scripts/signers/citrate_authorize_recorder.py 0x<recorder>
+```
+The helper verifies the caller *is* governance before spending gas and confirms the flag flipped after.

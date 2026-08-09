@@ -107,6 +107,20 @@ class CitrateEvmChain(ChainAdapter):
         return {"chain_id": self.chain_id(), "block": self.block_number(),
                 "rpc": self.rpc_url, "registry": self.registry}
 
+    def _eth_call(self, to: str, data: str) -> str:
+        return self._rpc("eth_call", [{"to": to, "data": data}, "latest"])
+
+    def governance(self) -> str:
+        """The AgentDecisionRegistry's active governor (Governable.governance())."""
+        word = self._eth_call(self.registry, "0x5aa6e675")  # governance()
+        return "0x" + word[-40:]
+
+    def is_authorized_recorder(self, address: str) -> bool:
+        """Whether `address` may write attestations (authorizedRecorders(address))."""
+        addr = address[2:] if address.startswith("0x") else address
+        data = "0xac9a5e9a" + addr.lower().rjust(64, "0")  # authorizedRecorders(address)
+        return int(self._eth_call(self.registry, data), 16) != 0
+
     def _decision_args(self, record: dict) -> list:
         """Map a provenance record → registerDecision(bytes32,string,bytes32) args.
 
