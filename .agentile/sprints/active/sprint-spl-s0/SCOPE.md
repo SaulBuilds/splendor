@@ -32,7 +32,7 @@ EEVEE render smoke test. Windows/macOS + CI remain. Measured-reality rows below 
 | We can add a Python extension without a C diff | Blender extensions platform (4.2+) present in the fork; **to confirm** against this revision when the build lands. |
 | An embedded MCP/agent bridge may need a C-level hook | Unknown until a long-lived in-process server is placed without fighting Blender's event loop. **To investigate in WP S0.3/S0.4.** |
 | Local models reachable offline | OpenAI-compatible shape assumed as the local lingua franca. llama.cpp/Ollama presence **to verify** at S0.5. |
-| CitrateNetwork testnet + pinning reachable | **S0.8 resolved the interface, not liveness:** the deploy layer's content-addressing + hash-verification + composable chain interface are verified via a local fixture; **live Citrate pinning/RPC endpoints remain UNCONFIGURED → UNVERIFIED**, and the adapters fail honestly (`PinUnavailable`/`ChainUnavailable`) rather than faking success. No Citrate infra hardcoded in the OSS repo. |
+| CitrateNetwork testnet + pinning reachable | **Live chain VERIFIED (2026-08-09):** `splendor.deploy.citrate.CitrateEvmChain` reaches the real hosted testnet `https://rpc.citrate.ai` — `eth_chainId == 40204`, real block reads. Public endpoints/addresses from the federation address book, env-overridable. **Attest-write** is honestly deferred to the non-custodial signer (SmartAccountIdentity, not yet); **pinning is IPFS** (`IpfsPinning`, needs a daemon/`CITRATE_IPFS_GATEWAY`). No secrets in the repo. |
 
 > Per the framework (§4), each row is resolved to a fact and the table updated **before** the dependent WP is
 > built. A seam may not claim liveness against a dependency whose reachability is unverified.

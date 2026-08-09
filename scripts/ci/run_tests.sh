@@ -31,6 +31,7 @@ PYTHON_TESTS=(
   tests/splendor/test_s0_6_eval_sdk.py
   tests/splendor/test_s0_7_workflow_graph.py
   tests/splendor/test_s0_8_chain_pinning.py
+  tests/splendor/test_s0_8_citrate_live.py
 )
 
 pass=0; fail=0; skip=0
