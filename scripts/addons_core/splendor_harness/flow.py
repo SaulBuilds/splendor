@@ -44,8 +44,13 @@ def grant_for(scene, classes=("geometry", "scene_config")):
     return hic.Grant("ui-session", "user", level, frozenset(classes))
 
 
-def build_router():
-    """Local-first Router: a configured endpoint (env), then Ollama, then llama.cpp."""
+def build_router(scene=None):
+    """Router for the Plan step. Uses the Model/Backend Manager's configured
+    backends when present; otherwise a configured endpoint (env) then local
+    Ollama/llama.cpp. Local-first."""
+    if scene is not None and len(getattr(scene, "splendor_backends", [])):
+        from .backends import router_from_manager
+        return router_from_manager(scene)
     router = Router()
     url = os.environ.get("SPLENDOR_MODEL_URL")
     if url:
@@ -111,7 +116,7 @@ class SPLENDOR_OT_plan(bpy.types.Operator):
             Message("system", "You plan retro PS1-style 3D asset builds as terse ordered steps."),
             Message("user", prompt)], max_tokens=120)
         try:
-            res = build_router().complete(req)
+            res = build_router(scene).complete(req)
             scene.splendor_plan = res.text[:400]
             scene.splendor_plan_backend = res.backend
             scene.splendor_run_state = 'PLANNED'
