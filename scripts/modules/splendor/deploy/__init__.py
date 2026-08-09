@@ -8,10 +8,11 @@ unbuilt sign-in fail loudly, never fake success. Pure Python, bpy-independent.
 """
 from __future__ import annotations
 
-from . import chain, identity, pinning, provenance
+from . import chain, citrate, identity, pinning, provenance
 from .chain import (
     AttestationRef, ChainAdapter, ChainRegistry, HttpChainAdapter, MemoryChainAdapter,
 )
+from .citrate import CITRATE_TESTNET, CitrateEvmChain, IpfsPinning, citrate_config
 from .errors import (
     ChainUnavailable, DeployError, IdentityNotAvailable, IntegrityError, PinUnavailable,
 )
@@ -25,5 +26,6 @@ __all__ = [
     "ChainUnavailable", "DeployError", "IdentityNotAvailable", "IntegrityError", "PinUnavailable",
     "Identity", "SmartAccountIdentity",
     "HttpPinning", "PinRef", "PinningBackend", "content_address", "make_provenance",
+    "CITRATE_TESTNET", "CitrateEvmChain", "IpfsPinning", "citrate_config",
 ]
 __version__ = (0, 0, 1)
