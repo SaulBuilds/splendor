@@ -38,10 +38,23 @@ itself lives in the Claude Design project (not vendored here — it embeds Citra
 Score→real eval digest; Ship→content-addressed CID + honest 'unconfigured' pin + **mint HIC-1 gated**;
 green accent applied; clean unregister.
 
-## Not yet (honest, per the mock's own labels)
-- **Visual pass** needs a GUI session (panels can't render headlessly). Launch Splendor → N-panel
-  "Splendor" + header autonomy bar + green accent.
-- **Plan** step (Router, local-first, honest-offline) and the **Retro HUD** viewport overlay are DONE (this increment).
-- Node/Edge editor + Model Manager (SPL-S2), Training Panel (SPL-S3) — named honestly, later slices.
+## Visual verification — DONE (2026-08-09)
+
+Rendered on the real binary via Xvfb + the **Vulkan** backend on the GB10 (the NVIDIA GL path can't
+attach to a virtual X display; Vulkan can). Two screenshots in this folder:
+
+- `spl-s1-gui.png` — the viewport with the **HIC Control Bar** in the header (`HIC-2 · Budgeted`), the
+  **Retro HUD** overlay (`12/500 tris · pal 16 · score 1.00 · SCORED`, green meter), the **Citrate-green
+  selection accent** on the built "Potion", and the **Splendor** sidebar tab.
+- `spl-s1-panel.png` — the full **Splendor Harness** N-panel: the **6-step flow** (1–6), the
+  Describe/Plan/Build/Score/Ship operators, the **inline HIC-1 approval box in red** ("build needs your
+  approval" + Approve button, shown because the build was gated), the **Retro HUD** toggle, and the
+  sub-panels **Eval / Leaderboard · Deploy · Splendor × Citrate · Model / Backend Manager · Training**.
+
+Everything renders as designed. The read-only `Region.active_panel_category` means the Splendor tab can't be
+forced by script; `spl-s1-panel.png` captured it because it was the active tab.
+
+## Still open (honest, per the mock's own labels)
 - The Citrate **paper skin** for Deploy is approximated in bpy; the pixel-faithful paper surface is the
   future web deploy/gallery (its own substrate).
+- Node-editor conditional routing shipped; a depth-4 MCP column in the disclosure map is a follow-up.

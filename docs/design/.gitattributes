@@ -1,0 +1,3 @@
+# Doc screenshots are small — store as normal git blobs, not LFS
+*.png -filter -diff -merge
+*.png text=false
