@@ -46,16 +46,24 @@ class SPLENDOR_PT_harness(bpy.types.Panel):
             flow.label(text=f"{i + 1} {name}", icon=('RADIOBUT_ON' if i == step else 'RADIOBUT_OFF'))
 
         col = layout.column(align=True)
-        col.scale_y = 1.2
+        col.scale_y = 1.15
         col.operator("splendor.describe", icon='CONSOLE')
+        row = col.row(align=True)
+        row.operator("splendor.plan", icon='OUTLINER_OB_LIGHT')
+        row.operator("splendor.build", icon='MOD_BUILD')
         row = col.row(align=True)
         row.operator("splendor.score", icon='CHECKMARK')
         row.operator("splendor.ship", icon='EXPORT')
+
+        # Retro HUD toggle (summoned overlay).
+        layout.prop(scene, "splendor_hud_enabled", text="Retro HUD", toggle=True, icon='OVERLAY')
 
         box = layout.box()
         box.label(text=f"Run · {scene.splendor_run_state}")
         if scene.splendor_prompt:
             box.label(text=scene.splendor_prompt, icon='OUTLINER_OB_FONT')
+        if scene.splendor_plan:
+            box.label(text=f"Plan · {scene.splendor_plan_backend}", icon='OUTLINER_OB_LIGHT')
         box.label(text=f"Autonomy · {_HIC_LABEL.get(scene.splendor_hic_level, '?')}")
 
 

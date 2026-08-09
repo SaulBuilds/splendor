@@ -41,7 +41,7 @@ green accent applied; clean unregister.
 ## Not yet (honest, per the mock's own labels)
 - **Visual pass** needs a GUI session (panels can't render headlessly). Launch Splendor → N-panel
   "Splendor" + header autonomy bar + green accent.
-- **Plan** step (Router call) and the **retro HUD live overlay** are the next UI increment.
+- **Plan** step (Router, local-first, honest-offline) and the **Retro HUD** viewport overlay are DONE (this increment).
 - Node/Edge editor + Model Manager (SPL-S2), Training Panel (SPL-S3) — named honestly, later slices.
 - The Citrate **paper skin** for Deploy is approximated in bpy; the pixel-faithful paper surface is the
   future web deploy/gallery (its own substrate).
