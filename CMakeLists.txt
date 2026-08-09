@@ -643,8 +643,25 @@ if(NOT APPLE AND NOT (WIN32 AND CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64"))
   mark_as_advanced(WITH_CYCLES_DEVICE_CUDA)
 
   option(WITH_CYCLES_CUDA_BINARIES "Build Cycles NVIDIA CUDA binaries" OFF)
+  # Splendor (2026-08): CUDA 13 removed Maxwell/Pascal/Volta (sm_50/52/60/70) and
+  # added Blackwell — sm_120, and sm_121 for the GB10 (compute 12.1). Choose the
+  # default arch set by the nvcc toolkit so a binaries build works out of the box.
+  find_program(_SPL_NVCC nvcc)
+  set(_SPL_CUDA_MAJOR 0)
+  if(_SPL_NVCC)
+    execute_process(COMMAND ${_SPL_NVCC} --version OUTPUT_VARIABLE _SPL_NVCC_VER ERROR_QUIET)
+    string(REGEX MATCH "release ([0-9]+)" _SPL_M "${_SPL_NVCC_VER}")
+    if(CMAKE_MATCH_1)
+      set(_SPL_CUDA_MAJOR ${CMAKE_MATCH_1})
+    endif()
+  endif()
+  if(_SPL_CUDA_MAJOR GREATER_EQUAL 13)
+    set(_SPL_CUDA_ARCH sm_75 sm_86 sm_89 sm_90 sm_120 sm_121 compute_120)
+  else()
+    set(_SPL_CUDA_ARCH sm_50 sm_52 sm_60 sm_70 sm_75 sm_86 sm_120 compute_75)
+  endif()
   set(CYCLES_CUDA_BINARIES_ARCH
-    sm_50 sm_52 sm_60 sm_70 sm_75 sm_86 sm_120 compute_75
+    ${_SPL_CUDA_ARCH}
     CACHE STRING "CUDA architectures to build binaries for"
   )
   option(WITH_CYCLES_CUDA_BUILD_SERIAL "\
