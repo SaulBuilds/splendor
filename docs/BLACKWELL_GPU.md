@@ -29,8 +29,19 @@ make BUILD_CMAKE_ARGS="-DWITH_CYCLES_CUDA_BINARIES=ON -DCYCLES_CUDA_BINARIES_ARC
 
 (`sm_121` alone keeps the build fast on this box; the default list covers Turing→Blackwell.)
 
-## OptiX (hardware RT) — deferred
-`WITH_CYCLES_DEVICE_OPTIX` needs the NVIDIA **OptiX SDK** (headers, EULA-gated download) — not present here.
-OSL-on-OptiX is also off; its dep build hardcoded `sm_50`, but the arch is no longer the blocker — the SDK
-is. Re-enable with `-DOPTIX_ROOT_DIR=…` once the SDK is provided (then bump OSL's `CUDA_TARGET_ARCH` to a
-supported arch in `build_files/build_environment/cmake/osl.cmake`).
+## OptiX (hardware RT) — ENABLED & VERIFIED (2026-08-09)
+Built with the **OptiX 9.1.0 SDK** (Blender 5.3 requires ≥ 8.0.0) extracted to `~/optix-9.1.0`:
+```
+CC=gcc-14 CXX=g++-14 make BUILD_CMAKE_ARGS="\
+  -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 \
+  -DWITH_CYCLES_DEVICE_OPTIX=ON -DOPTIX_ROOT_DIR=$HOME/optix-9.1.0 \
+  -DWITH_CYCLES_CUDA_BINARIES=ON -DCYCLES_CUDA_BINARIES_ARCH=sm_121"
+```
+cmake reported `Found OptiX … suitable version 9.1.0`. The **OptiX device is detected**
+(`NVIDIA GB10 · OPTIX`) and a Cycles **OptiX hardware-RT render completes in ~0.48 s** (even faster than the
+CUDA path's 0.9 s). Only the OptiX SDK *headers* are needed (arch-portable); the runtime is the driver's
+`libnvoptix.so.1`, already present.
+
+**GPU OSL on OptiX** remains a further step: `build_files/build_environment/cmake/osl.cmake` still has its
+OptiX block `if(FALSE)` — re-enable it and change `sm_50` → a CUDA-13-supported arch (`sm_90`), with the
+OptiX SDK available to the deps build. Not required for Cycles OptiX (verified above).
