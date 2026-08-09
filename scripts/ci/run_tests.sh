@@ -22,6 +22,7 @@ BLENDER_TESTS=(
   tests/splendor/test_spl_s2_nodes.py
   tests/splendor/test_spl_s2_backends.py
   tests/splendor/test_spl_s3_training.py
+  tests/splendor/test_blackwell_gpu.py
 )
 # Pure-Python tests (test_s0_4 spawns Blender internally).
 PYTHON_TESTS=(
