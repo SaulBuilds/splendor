@@ -15,6 +15,14 @@ class ChainUnavailable(DeployError):
     """Chain endpoint unreachable or unconfigured."""
 
 
+class SignerUnavailable(ChainUnavailable):
+    """No non-custodial signer is configured, or the signer process failed.
+
+    A subclass of ChainUnavailable: attestation without a signer is still an
+    honest "the write can't happen", never a fabricated attestation.
+    """
+
+
 class IntegrityError(DeployError):
     """Content hash did not match the CID (tampered / wrong payload)."""
 

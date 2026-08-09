@@ -205,6 +205,24 @@ Verify end-to-end (pin → CID → fetch round-trip against a live daemon, skip-
 python3 tests/splendor/test_s0_8_citrate_live.py
 ```
 
-**On-chain attestation** (provenance/mint) is honestly deferred: `CitrateEvmChain.attest()` raises
-`ChainUnavailable` until a non-custodial signer is wired — the live chain is read-only here (chain 40204,
-`rpc.citrate.ai`). Reads (`chain_id`, `block_number`) work today.
+### On-chain attestation (non-custodial signer)
+
+The approved **mint** step writes an attestation on-chain via
+`AgentDecisionRegistry.registerDecision(bytes32,string,bytes32)` (selector `0xf5d83567`) on chain 40204.
+Blender's bundled Python holds no key and cannot sign; signing is **delegated to a separate process**
+(`splendor.deploy.signer`) that owns the key — Splendor only emits the call. Configure a signer:
+
+```
+# Option A — the bundled reference signer (needs a Python with eth_account/eth_abi/web3):
+export CITRATE_SIGNER_KEY=0x<your funded, authorised-recorder key>
+# Option B — any signer command speaking the JSON stdin/stdout protocol:
+export SPLENDOR_CITRATE_SIGNER="my-signer --flags"
+```
+With **neither** set, `attest()` raises `SignerUnavailable` (honest, never a fake tx). The signer address
+must be an **authorized recorder** (`authorizedRecorders[msg.sender]`) or the node reverts
+`NotAuthorizedRecorder` — surfaced, not swallowed. Verify the wiring (encode golden-vector + honest
+live-chain failure; skip-safe without the EVM stack):
+```
+python3 tests/splendor/test_s0_9_signer.py
+```
+Chain **reads** (`chain_id`, `block_number`) need no signer and work today.

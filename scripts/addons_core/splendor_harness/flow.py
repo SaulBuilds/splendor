@@ -18,7 +18,8 @@ import splendor
 import splendor_eval as ev
 from splendor import dsl, hic
 from splendor.deploy import (
-    HttpPinning, IpfsPinning, MemoryChainAdapter, PinUnavailable, content_address, make_provenance,
+    ChainUnavailable, CitrateEvmChain, HttpPinning, IpfsPinning, MemoryChainAdapter,
+    PinUnavailable, content_address, make_provenance,
 )
 from splendor.models import (
     BackendUnavailable, CompletionRequest, Message, OpenAICompatBackend, Router,
@@ -256,11 +257,21 @@ class SPLENDOR_OT_approve(bpy.types.Operator):
             approval = hic.Approval("user", frozenset({"mint"}))
             decision = hic.gate("mint", grant_for(scene, classes=("mint",)), approval)
             if decision.verdict is hic.Verdict.PROCEED:
-                ref = MemoryChainAdapter("citrate").attest(
-                    {"mint": scene.splendor_ship_cid, "approved_by": "user"})
-                scene.splendor_ship_mint = f"minted {ref.id[:14]}… ({decision.rule_code})"
+                record = {"mint": scene.splendor_ship_cid, "approved_by": "user",
+                          "workflow": scene.splendor_prompt or "splendor"}
+                try:
+                    # Real on-chain attestation via the non-custodial signer
+                    # (AgentDecisionRegistry.registerDecision on chain 40204).
+                    ref = CitrateEvmChain().attest(record)
+                    scene.splendor_ship_mint = f"attested {ref.id[:14]}… ({decision.rule_code})"
+                    self.report({'INFO'}, f"Approved · on-chain attest {ref.id[:14]}…")
+                except ChainUnavailable as exc:
+                    # No signer / unfunded / unauthorised / offline → honest, never a fake
+                    # mint. The free in-app provenance record still stands.
+                    local = MemoryChainAdapter("citrate").attest(record)
+                    scene.splendor_ship_mint = f"unsigned {local.id[:14]}… — {str(exc)[:56]}"
+                    self.report({'WARNING'}, f"Approved; on-chain attest deferred: {str(exc)[:80]}")
                 scene.splendor_run_state = 'SHIPPED'
-                self.report({'INFO'}, f"Approved · minted {ref.id[:14]}…")
             else:
                 self.report({'WARNING'}, "Mint still not permitted")
             return {'FINISHED'}
