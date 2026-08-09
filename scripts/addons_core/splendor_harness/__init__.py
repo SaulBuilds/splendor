@@ -1,40 +1,71 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Splendor Harness — the Blender integration for the governed action core.
+"""Splendor Harness — the SPL-S1 in-Blender UI, wired to the verified seams.
 
-Thin by design: it registers the scene state the retro engine reads and the
-operators that let the UI (and, later, the mock's chat modals / HIC control bar)
-drive intents. Every operator calls the *same* :func:`splendor.action_api.execute`
-that the agent and MCP server use — one governed path, two (soon many) front
-doors (invariant I-1). No governance logic lives here; it lives in
-:mod:`splendor.hic`.
+Thin by design: operators and panels are *front doors* to the governed action API
+(P2/P6), the model Router (P3), the Eval SDK (P4), and the deploy layer (P7). No
+governance or scoring logic lives here — it lives in the `splendor*` modules. The
+UI implements the SPL-S1 mock: the 6-step flow, the HIC Control Bar, the Eval
+scorecard, and the Citrate deploy boundary — Blender-native, Citrate-green accent.
 """
 from __future__ import annotations
 
 import bpy
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, StringProperty
 
-from . import ops
+from . import flow, ops, panels
 
 bl_info = {
     "name": "Splendor Harness",
     "author": "Splendor",
-    "version": (0, 0, 1),
+    "version": (0, 1, 0),
     "blender": (5, 3, 0),
-    "location": "3D Viewport > Sidebar > Splendor (UI arrives with the SPL-S1 mock)",
-    "description": "Governed action API + HIC gate (S0.3 seam). Operators route "
-                   "through splendor.action_api.execute.",
+    "location": "3D Viewport > Sidebar (N) > Splendor · header autonomy bar",
+    "description": "SPL-S1 governed AI flow: describe → build → score → ship, wired to the seams.",
     "category": "Splendor",
 }
 
 
-def register() -> None:
-    bpy.types.Scene.splendor_palette_size = bpy.props.IntProperty(
-        name="Splendor Palette Size",
-        description="Retro palette size (colors). Read by the retro engine (P1).",
-        default=16, min=1, max=256,
-    )
+def _register_props():
+    S = bpy.types.Scene
+    S.splendor_palette_size = IntProperty(
+        name="Splendor Palette Size", description="Retro palette size (colors), read by the retro engine",
+        default=16, min=1, max=256)
+    S.splendor_tri_budget = IntProperty(name="Tri Budget", default=500, min=1)
+    S.splendor_hic_level = EnumProperty(name="Autonomy", items=flow.HIC_ENUM, default='BUDGETED')
+    S.splendor_prompt = StringProperty(name="Prompt", default="")
+    S.splendor_run_state = StringProperty(name="Run State", default="IDLE")
+    S.splendor_retro_enabled = BoolProperty(name="Retro", default=True)
+    S.splendor_eval_passed = BoolProperty(name="Eval Passed", default=False)
+    S.splendor_eval_digest = StringProperty(name="Eval Digest", default="")
+    S.splendor_eval_score = FloatProperty(name="Eval Score", default=0.0)
+    S.splendor_eval_tris = IntProperty(name="Eval Tris", default=0)
+    S.splendor_ship_cid = StringProperty(name="Ship CID", default="")
+    S.splendor_ship_pin = StringProperty(name="Ship Pin", default="")
+    S.splendor_ship_mint = StringProperty(name="Ship Mint", default="")
+
+
+def _unregister_props():
+    S = bpy.types.Scene
+    for name in ("splendor_palette_size", "splendor_tri_budget", "splendor_hic_level",
+                 "splendor_prompt", "splendor_run_state", "splendor_retro_enabled",
+                 "splendor_eval_passed", "splendor_eval_digest", "splendor_eval_score",
+                 "splendor_eval_tris", "splendor_ship_cid", "splendor_ship_pin",
+                 "splendor_ship_mint"):
+        if hasattr(S, name):
+            delattr(S, name)
+
+
+def register():
+    _register_props()
     ops.register()
+    for cls in flow.CLASSES:
+        bpy.utils.register_class(cls)
+    panels.register()
 
 
-def unregister() -> None:
+def unregister():
+    panels.unregister()
+    for cls in reversed(flow.CLASSES):
+        bpy.utils.unregister_class(cls)
     ops.unregister()
-    del bpy.types.Scene.splendor_palette_size
+    _unregister_props()
