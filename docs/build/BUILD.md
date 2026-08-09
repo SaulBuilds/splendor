@@ -143,10 +143,12 @@ macOS also ships precompiled libs (`lib/macos_arm64`) — no `make deps`.
 
 ---
 
-## 6. OptiX (hardware ray tracing) — one download away
+## 6. OptiX (hardware ray tracing) — ENABLED & VERIFIED (2026-08-09)
 
-The OptiX **driver runtime** (`libnvoptix.so.1`) is present on the dev box, but the **OptiX SDK headers**
-are **login + EULA gated** on `developer.nvidia.com` and cannot be downloaded unattended. To enable OptiX:
+The OptiX **driver runtime** (`libnvoptix.so.1`) is present. The **OptiX SDK headers** are login + EULA
+gated on `developer.nvidia.com` (can't be fetched unattended), but once downloaded it's one step —
+**verified** with the **OptiX 9.1.0 SDK**: the OptiX device is detected (`NVIDIA GB10 · OPTIX`) and a Cycles
+hardware-RT render completes in ~0.48 s (`docs/BLACKWELL_GPU.md`). To reproduce:
 
 1. With a (free) NVIDIA developer account, download the **OptiX SDK 8.x** and run/extract it to a path,
    e.g. `~/optix-8.0.0`. Only the `include/` headers are needed (they're arch-portable).
