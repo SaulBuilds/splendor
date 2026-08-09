@@ -1,15 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """The SPL-S1 flow operators — the 6 steps wired to the real seams.
 
-Describe → Plan → Build → Score → Approve → Ship. Each operator drives the
-verified backend: the governed action API (P2/P6), the model Router (P3), the
-Eval SDK (P4), and the deploy layer (P7). Nothing here fakes a result: a governed
-block reports honestly, an unreachable endpoint reports honestly, mint (sensitive)
-requires HIC-1 approval. This is the wiring the mock draws.
+Describe → Plan → Build → Score → Approve → Ship. Each drives a verified backend:
+the model Router (P3, the Plan step), the governed action API (P2/P6, Build), the
+Eval SDK (P4, Score), the deploy layer (P7, Ship). Nothing fakes a result: an
+offline Plan says so, a governed Build reports honestly, an unreachable pin
+reports honestly, mint (sensitive) requires HIC-1 approval.
 """
 from __future__ import annotations
 
-import hashlib
 import os
 from dataclasses import dataclass
 
@@ -20,8 +19,10 @@ import splendor
 import splendor_eval as ev
 from splendor import dsl, hic
 from splendor.deploy import (
-    ChainUnavailable, HttpChainAdapter, HttpPinning, MemoryChainAdapter, PinUnavailable,
-    content_address, make_provenance,
+    HttpPinning, MemoryChainAdapter, PinUnavailable, content_address, make_provenance,
+)
+from splendor.models import (
+    BackendUnavailable, CompletionRequest, Message, OpenAICompatBackend, Router,
 )
 from . import theme
 
@@ -44,6 +45,18 @@ def grant_for(scene, classes=("geometry", "scene_config")):
     return hic.Grant("ui-session", "user", level, frozenset(classes))
 
 
+def build_router():
+    """Local-first Router: a configured endpoint (env), then Ollama, then llama.cpp."""
+    router = Router()
+    url = os.environ.get("SPLENDOR_MODEL_URL")
+    if url:
+        router.register(OpenAICompatBackend("configured", url,
+                                            os.environ.get("SPLENDOR_MODEL", "local"), is_local=True))
+    router.register(OpenAICompatBackend("ollama", "http://127.0.0.1:11434/v1", "llama3", is_local=True))
+    router.register(OpenAICompatBackend("llama.cpp", "http://127.0.0.1:8080/v1", "local", is_local=True))
+    return router
+
+
 @dataclass(frozen=True)
 class _MintIntent(dsl.Intent):
     action_class = "mint"   # sensitive → HIC-1 approve-each even when covered
@@ -53,7 +66,6 @@ class _MintIntent(dsl.Intent):
 
 
 def _ensure_target(context):
-    """The active mesh, or a fresh 'Potion' cube built via bpy.data (background-safe)."""
     obj = context.active_object
     if obj is not None and obj.type == 'MESH':
         return obj
@@ -70,7 +82,7 @@ def _ensure_target(context):
 
 
 class SPLENDOR_OT_describe(bpy.types.Operator):
-    """Describe a PS1 asset; the agent builds it through the governed action API."""
+    """Describe a PS1 asset (captures the prompt + retro parameters)."""
 
     bl_idname = "splendor.describe"
     bl_label = "Describe a PS1 asset"
@@ -86,18 +98,62 @@ class SPLENDOR_OT_describe(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
+        scene.splendor_prompt = self.prompt
+        scene.splendor_palette_size = self.colors
+        scene.splendor_snap_grid = self.grid
+        _ensure_target(context)
+        scene.splendor_run_state = 'DESCRIBED'
+        self.report({'INFO'}, f"Described · palette {self.colors} · snap {self.grid}")
+        return {'FINISHED'}
+
+
+class SPLENDOR_OT_plan(bpy.types.Operator):
+    """Plan the build with a local model (Router, local-first). Honest if offline."""
+
+    bl_idname = "splendor.plan"
+    bl_label = "Plan (local model)"
+
+    def execute(self, context):
+        scene = context.scene
+        prompt = scene.splendor_prompt or "a low-poly PS1 asset, low palette"
+        req = CompletionRequest(messages=[
+            Message("system", "You plan retro PS1-style 3D asset builds as terse ordered steps."),
+            Message("user", prompt)], max_tokens=120)
+        try:
+            res = build_router().complete(req)
+            scene.splendor_plan = res.text[:400]
+            scene.splendor_plan_backend = res.backend
+            scene.splendor_run_state = 'PLANNED'
+            self.report({'INFO'}, f"Planned via {res.backend}")
+        except BackendUnavailable:
+            scene.splendor_plan = ("(no local model reachable — offline. Run a llama.cpp/Ollama "
+                                   "server or set SPLENDOR_MODEL_URL.)")
+            scene.splendor_plan_backend = "offline"
+            scene.splendor_run_state = 'PLAN_OFFLINE'
+            self.report({'WARNING'}, "No local model reachable — offline (honest)")
+        return {'FINISHED'}
+
+
+class SPLENDOR_OT_build(bpy.types.Operator):
+    """Build the asset through the governed action API (respects the HIC level)."""
+
+    bl_idname = "splendor.build"
+    bl_label = "Build (governed)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        scene = context.scene
         obj = _ensure_target(context)
         grant = grant_for(scene)
-        r1 = splendor.action_api.execute(dsl.SetPalette(colors=self.colors),
+        r1 = splendor.action_api.execute(dsl.SetPalette(colors=int(scene.splendor_palette_size)),
                                          principal="user", grant=grant, ctx={"scene": scene})
-        r2 = splendor.action_api.execute(dsl.SnapVertices(grid=self.grid),
+        r2 = splendor.action_api.execute(dsl.SnapVertices(grid=float(scene.splendor_snap_grid)),
                                          principal="user", grant=grant, ctx={"object": obj})
-        scene.splendor_prompt = self.prompt
         built = r1.executed and r2.executed
         scene.splendor_run_state = 'BUILT' if built else 'NEEDS_APPROVAL'
         rc = f"{r1.record.rule_code}/{r2.record.rule_code}"
         if built:
-            self.report({'INFO'}, f"Built · palette {self.colors} · snap {self.grid} [{rc}]")
+            self.report({'INFO'}, f"Built [{rc}]")
         else:
             self.report({'WARNING'}, f"Governed: {r2.verdict.value} [{rc}]")
         return {'FINISHED'}
@@ -146,7 +202,6 @@ class SPLENDOR_OT_ship(bpy.types.Operator):
         cid = content_address(data)
         prov = make_provenance(cid, eval_digest=(scene.splendor_eval_digest or None),
                                workflow=None, meta={"prompt": scene.splendor_prompt})
-        # Provenance attest is free (memory adapter here; real chain via config).
         MemoryChainAdapter("citrate").attest(prov)
 
         pin_url = os.environ.get("SPLENDOR_CITRATE_PINNING", "")
@@ -159,7 +214,6 @@ class SPLENDOR_OT_ship(bpy.types.Operator):
         else:
             pin_status = "unconfigured (Citrate endpoint unset)"
 
-        # Mint is sensitive → HIC-1 approve-each. Honest require-approval by default.
         mint = splendor.action_api.execute(_MintIntent(), principal="user",
                                            grant=grant_for(scene, classes=("mint",)), ctx={})
         scene.splendor_ship_cid = cid
@@ -171,20 +225,6 @@ class SPLENDOR_OT_ship(bpy.types.Operator):
         else:
             self.report({'WARNING'}, f"Mint {mint.verdict.value} [{mint.record.rule_code}] · "
                                      f"attested+pin={pin_status}")
-        return {'FINISHED'}
-
-
-class SPLENDOR_OT_set_hic(bpy.types.Operator):
-    """Set the current HIC autonomy level."""
-
-    bl_idname = "splendor.set_hic"
-    bl_label = "Set autonomy level"
-
-    level: StringProperty()
-
-    def execute(self, context):
-        if self.level:
-            context.scene.splendor_hic_level = self.level
         return {'FINISHED'}
 
 
@@ -201,6 +241,6 @@ class SPLENDOR_OT_apply_accent(bpy.types.Operator):
 
 
 CLASSES = (
-    SPLENDOR_OT_describe, SPLENDOR_OT_score, SPLENDOR_OT_ship,
-    SPLENDOR_OT_set_hic, SPLENDOR_OT_apply_accent,
+    SPLENDOR_OT_describe, SPLENDOR_OT_plan, SPLENDOR_OT_build,
+    SPLENDOR_OT_score, SPLENDOR_OT_ship, SPLENDOR_OT_apply_accent,
 )
