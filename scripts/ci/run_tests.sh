@@ -19,6 +19,7 @@ BLENDER_TESTS=(
   tests/splendor/test_s0_2_retro_shader.py
   tests/splendor/test_s0_3_governed_action_api.py
   tests/splendor/test_spl_s1_ui.py
+  tests/splendor/test_spl_s2_nodes.py
 )
 # Pure-Python tests (test_s0_4 spawns Blender internally).
 PYTHON_TESTS=(
