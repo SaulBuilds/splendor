@@ -51,11 +51,13 @@ def main():
         check(scene.splendor_run_state == 'BUILT', "Build → BUILT after governed build")
         check(scene.splendor_palette_size == 8, "SetPalette applied real scene state via action API")
 
-        print("[2] HIC gate from the UI: APPROVE_EACH → Build requires approval")
+        print("[2] HIC gate + inline Approve: APPROVE_EACH build blocks, then Approve clears it")
         scene.splendor_hic_level = 'APPROVE_EACH'
         scene.splendor_palette_size = 8
         bpy.ops.splendor.build('EXEC_DEFAULT')
         check(scene.splendor_run_state == 'NEEDS_APPROVAL', "HIC-1 blocks the build (require-approval)")
+        bpy.ops.splendor.approve('EXEC_DEFAULT')
+        check(scene.splendor_run_state == 'BUILT', "Approve (HIC-1) clears the build → BUILT (proceeds, not bypass)")
 
         print("[3] Plan (offline) → honest, no fabricated plan")
         scene.splendor_hic_level = 'BUDGETED'
@@ -79,11 +81,15 @@ def main():
         check(scene.splendor_eval_passed and scene.splendor_eval_digest.startswith("sha256:"),
               "eval passed + real content digest")
 
-        print("[6] Ship → honest deploy: attest+pin free, mint HIC-1 gated")
+        print("[6] Ship → honest deploy: attest+pin free, mint HIC-1 gated, then Approve mints")
         bpy.ops.splendor.ship('EXEC_DEFAULT')
         check(scene.splendor_ship_cid.startswith("sha256:"), "asset content-addressed (CID)")
         check("unconfigured" in scene.splendor_ship_pin, "pin honestly 'unconfigured' (no fake success)")
         check(scene.splendor_ship_mint == 'require-approval', "mint HIC-1 gated (require-approval)")
+        check(scene.splendor_run_state == 'AWAITING_MINT_APPROVAL', "run state awaits mint approval")
+        bpy.ops.splendor.approve('EXEC_DEFAULT')
+        check(scene.splendor_run_state == 'SHIPPED', "Approve (HIC-1) mints → SHIPPED")
+        check(scene.splendor_ship_mint.startswith("minted "), "mint recorded as minted (approved)")
 
         print("[7] Retro HUD: metrics correct + toggle drives the viewport draw handler")
         m = hud.hud_metrics(scene)

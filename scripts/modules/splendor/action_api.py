@@ -45,8 +45,14 @@ def execute(
     principal: str,
     grant: Optional[hic.Grant],
     ctx: Optional[dict] = None,
+    approval: "Optional[hic.Approval]" = None,
 ) -> ActionResult:
-    """Governed execution: validate → gate → record → (only then) act."""
+    """Governed execution: validate → gate → record → (only then) act.
+
+    A matching human ``approval`` upgrades a ``require-approval`` verdict to
+    ``proceed`` (recorded as approved), so a HIC-1 action can proceed once
+    approved — never a bypass.
+    """
     ctx = ctx or {}
     action_class = type(intent).action_class
 
@@ -67,8 +73,8 @@ def execute(
         )
         return ActionResult(False, hic.Verdict.DENY, rec, error=str(exc))
 
-    # 2. HIC gate BEFORE execution (I-2).
-    decision = hic.PolicyBinding.check(action_class, grant)
+    # 2. HIC gate BEFORE execution (I-2), with human-approval override.
+    decision = hic.gate(action_class, grant, approval)
 
     # 3. Record the decision (I-3): principal, grant, HIC level — never dropped.
     rec = _LOG.record(

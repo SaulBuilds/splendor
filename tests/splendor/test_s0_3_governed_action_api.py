@@ -176,6 +176,31 @@ def test_operator_front_door():
     check(ran and n_after == n_before + 1, "operator produced exactly one governed decision record")
 
 
+def test_human_approval_overrides():
+    print("[10] HIC-1 require-approval + a matching human Approval -> proceeds (recorded approved)")
+    ob = make_mesh("appr", OFFGRID)
+    before = coords(ob)
+    approve_each = hic.Grant("g-a1", "tester", hic.HicLevel.APPROVE_EACH, frozenset({"geometry"}))
+    # Without approval: require-approval, geometry unchanged.
+    r0 = splendor.action_api.execute(dsl.SnapVertices(grid=GRID), principal="tester",
+                                     grant=approve_each, ctx={"object": ob})
+    check(not r0.executed and r0.verdict is hic.Verdict.REQUIRE_APPROVAL, "HIC-1 → require-approval first")
+    check(coords(ob) == before, "unapproved action left geometry unchanged")
+    # With a matching approval: proceeds, recorded as approved (RC-SPL-020).
+    appr = hic.Approval("a-human", frozenset({"geometry"}))
+    r1 = splendor.action_api.execute(dsl.SnapVertices(grid=GRID), principal="tester",
+                                     grant=approve_each, ctx={"object": ob}, approval=appr)
+    check(r1.executed and r1.verdict is hic.Verdict.PROCEED, "matching approval → proceed")
+    check(r1.record.rule_code == "RC-SPL-020" and "approved by a-human" in r1.record.reason,
+          "recorded as approved-by-human (evidence, not a bypass)")
+    # A non-matching approval does NOT clear a different class.
+    wrong = hic.Approval("a-human", frozenset({"scene_config"}))
+    r2 = splendor.action_api.execute(dsl.SnapVertices(grid=GRID), principal="tester",
+                                     grant=approve_each, ctx={"object": make_mesh("appr2", OFFGRID)},
+                                     approval=wrong)
+    check(not r2.executed, "approval for a different action class does not clear this one")
+
+
 def main():
     splendor_harness.register()  # registers the scene property + operators
     try:
@@ -183,7 +208,7 @@ def main():
                   test_negctl_invalid_intent_denied, test_negctl_grant_does_not_cover_class,
                   test_sensitive_class_forces_hic1, test_set_palette_real_state_change,
                   test_single_action_path_source_scan, test_reproducible,
-                  test_operator_front_door):
+                  test_operator_front_door, test_human_approval_overrides):
             t()
     finally:
         # Confirm the audit trail never silently dropped a blocked action.
