@@ -34,9 +34,10 @@ itself lives in the Claude Design project (not vendored here — it embeds Citra
 | Accent (green replaces blue) | `SPLENDOR_OT_apply_accent` | `theme.apply_accent` |
 
 ## Verified (headless, real binary) — `tests/splendor/test_spl_s1_ui.py`
-22 checks PASS: registration; Describe→governed build; **HIC-1 blocks the build (gate before act)**;
-Score→real eval digest; Ship→content-addressed CID + honest 'unconfigured' pin + **mint HIC-1 gated**;
-green accent applied; clean unregister.
+Checks PASS: registration; Describe→governed build; **HIC-1 blocks the build (gate before act)**;
+Score→real eval digest; Ship→content-addressed CID + real IPFS pin (honest 'unreachable' when the daemon
+is down) + **mint HIC-1 gated → real on-chain attestation** via the non-custodial signer (honest 'unsigned'
+without one); green accent applied; clean unregister.
 
 ## Visual verification — DONE (2026-08-09)
 

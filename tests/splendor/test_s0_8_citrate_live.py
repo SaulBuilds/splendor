@@ -42,9 +42,11 @@ def main():
     else:
         print("     SKIP — rpc.citrate.ai unreachable (offline CI); config + honest paths still checked")
 
-    print("[3] NEG CONTROL: attestation is honestly deferred to a signer (never faked)")
+    print("[3] NEG CONTROL: attestation needs a non-custodial signer (never faked)")
+    for _k in ("SPLENDOR_CITRATE_SIGNER", "CITRATE_SIGNER_KEY"):
+        os.environ.pop(_k, None)  # deterministic: assert the no-signer path
     try:
-        chain.attest({"asset": "sha256:deadbeef", "eval": None})
+        CitrateEvmChain(signer=None).attest({"asset": "sha256:deadbeef", "eval": None})
         check(False, "attest should raise (write needs a signer)")
     except ChainUnavailable as exc:
         msg = str(exc).lower()

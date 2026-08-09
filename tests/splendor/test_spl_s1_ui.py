@@ -35,10 +35,14 @@ def check(cond, label):
 def main():
     os.environ.pop("SPLENDOR_MODEL_URL", None)
     os.environ.pop("SPLENDOR_CITRATE_PINNING", None)
-    # Keep the UI test hermetic: force IPFS unreachable so Ship exercises the honest
-    # failure path deterministically. The real pin→fetch round-trip is verified live in
-    # tests/splendor/test_s0_8_citrate_live.py against a running daemon.
+    # Keep the UI test hermetic: force IPFS + chain RPC unreachable and clear any signer
+    # so Ship/mint exercise the honest failure paths deterministically. The real pin→fetch
+    # round-trip and the real on-chain attestation are verified live in
+    # tests/splendor/test_s0_8_citrate_live.py and test_s0_9_signer.py.
     os.environ["CITRATE_IPFS_API"] = "http://127.0.0.1:59999"
+    os.environ["CITRATE_RPC_URL"] = "http://127.0.0.1:59999"
+    for _k in ("SPLENDOR_CITRATE_SIGNER", "CITRATE_SIGNER_KEY"):
+        os.environ.pop(_k, None)
     splendor_harness.register()
     scene = bpy.context.scene
     try:
@@ -85,15 +89,18 @@ def main():
         check(scene.splendor_eval_passed and scene.splendor_eval_digest.startswith("sha256:"),
               "eval passed + real content digest")
 
-        print("[6] Ship → honest deploy: attest+pin free, mint HIC-1 gated, then Approve mints")
+        print("[6] Ship → honest deploy: attest+pin free, mint HIC-1 gated, then Approve attests")
         bpy.ops.splendor.ship('EXEC_DEFAULT')
         check(scene.splendor_ship_cid.startswith("sha256:"), "asset content-addressed (CID)")
         check("unreachable" in scene.splendor_ship_pin, "pin fails honestly when IPFS is unreachable (no fake CID)")
         check(scene.splendor_ship_mint == 'require-approval', "mint HIC-1 gated (require-approval)")
         check(scene.splendor_run_state == 'AWAITING_MINT_APPROVAL', "run state awaits mint approval")
         bpy.ops.splendor.approve('EXEC_DEFAULT')
-        check(scene.splendor_run_state == 'SHIPPED', "Approve (HIC-1) mints → SHIPPED")
-        check(scene.splendor_ship_mint.startswith("minted "), "mint recorded as minted (approved)")
+        check(scene.splendor_run_state == 'SHIPPED', "Approve (HIC-1) clears the on-chain step → SHIPPED")
+        # No signer + unreachable RPC → honest 'unsigned' (never a fabricated tx); a
+        # configured, funded, authorised signer would read 'attested <txhash>…'.
+        check(scene.splendor_ship_mint.startswith("unsigned "),
+              "on-chain attest honestly deferred without a signer (no fake mint)")
 
         print("[7] Retro HUD: metrics correct + toggle drives the viewport draw handler")
         m = hud.hud_metrics(scene)
