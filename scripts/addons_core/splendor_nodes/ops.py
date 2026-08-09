@@ -30,7 +30,7 @@ def new_starter_tree(name="Splendor Workflow"):
     a = tree.nodes.new("SPLENDOR_ND_apply"); a.location = (660, 0)
     tree.links.new(p.outputs[0], m.inputs[0])
     tree.links.new(m.outputs[0], e.inputs[0])
-    tree.links.new(e.outputs[0], a.inputs[0])
+    tree.links.new(e.outputs["pass"], a.inputs[0])   # else → __end__ (skips apply on fail)
     return tree
 
 

@@ -58,6 +58,7 @@ def main():
         check("__start__" in srcs and "__end__" in tgts, "START/END sentinels added from the flow links")
         back = from_langgraph(json.dumps(artifact))
         check(dumps(workflow) == dumps(back), "round-trips byte-identically (S0.7 seam)")
+        check(any(e.condition for e in workflow.edges), "eval emits a conditional edge (pass / else→__end__)")
 
         print("[3] Visual round-trip: workflow → tree → workflow is stable")
         tree2 = bpy.data.node_groups.new("wf-rebuilt", "SplendorNodeTree")
@@ -73,7 +74,20 @@ def main():
         check(res.get("eval_passed") is True and res.get("applied") is True, "eval passed + apply ran")
         tmap = {n.id: n.type for n in workflow.nodes}
         check([tmap[i] for i in (res.get("trace") or [])] == ["prompt", "model", "eval", "apply"],
-              "full trace prompt→model→eval→apply")
+              "PASS path trace: prompt→model→eval→apply (eval passed → apply)")
+
+        print("[4b] Conditional FALSE path: eval fails → routes to __end__, apply skipped")
+        tree_f = ops.new_starter_tree("wf-fail")
+        for n in tree_f.nodes:
+            if getattr(n, "splendor_type", "") == "eval":
+                n.measured_palette = 20   # > cap 16 → fails PaletteAdherence
+        res_f = ops.run_workflow(tree_f, router=router)
+        check(res_f.get("ok") and res_f.get("eval_passed") is False, "eval failed (20 > 16 cap)")
+        wf_f = convert.tree_to_workflow(tree_f)
+        tmap_f = {n.id: n.type for n in wf_f.nodes}
+        check([tmap_f[i] for i in (res_f.get("trace") or [])] == ["prompt", "model", "eval"],
+              "FALSE path trace stops at eval (routed to __end__)")
+        check(res_f.get("applied") is False, "apply did NOT run on the fail path")
 
         print("[5] Run offline: honest, no fabricated run")
         dead = Router([OpenAICompatBackend("dead", "http://127.0.0.1:1/v1", "x", is_local=True)])

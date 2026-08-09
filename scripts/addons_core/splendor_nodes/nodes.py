@@ -78,21 +78,28 @@ class SPLENDOR_ND_eval(_SplendorNode):
     bl_label = "Eval"
     splendor_type = "eval"
 
+    # Caps (build the harness) vs measured (the subject scored). In a live run a
+    # measurer fills the measured values; here they're editable for authoring.
     tri_budget: IntProperty(name="Tri budget", default=500, min=1)
-    palette: IntProperty(name="Palette", default=16, min=1, max=256)
+    palette: IntProperty(name="Palette cap", default=16, min=1, max=256)
+    measured_tris: IntProperty(name="Measured tris", default=12, min=0)
+    measured_palette: IntProperty(name="Measured colors", default=14, min=0)
 
     def init(self, context):
         self.inputs.new("SplendorFlowSocket", "flow")
-        self.outputs.new("SplendorFlowSocket", "flow")
+        self.outputs.new("SplendorFlowSocket", "pass")   # taken when eval passes
+        self.outputs.new("SplendorFlowSocket", "else")   # taken when it fails
 
     def draw_buttons(self, context, layout):
-        layout.prop(self, "tri_budget")
-        layout.prop(self, "palette")
+        col = layout.column(align=True)
+        col.prop(self, "tri_budget")
+        col.prop(self, "palette")
+        col.prop(self, "measured_tris")
+        col.prop(self, "measured_palette")
 
     def to_config(self):
-        # The subject the Eval SDK scores; measurers fill tri_count in a live run.
-        return {"subject": {"tri_count": 12, "palette_colors": self.palette},
-                "subject_id": "wf", "tri_budget": self.tri_budget}
+        return {"subject": {"tri_count": self.measured_tris, "palette_colors": self.measured_palette},
+                "subject_id": "wf", "tri_budget": self.tri_budget, "palette_cap": self.palette}
 
 
 class SPLENDOR_ND_apply(_SplendorNode):
