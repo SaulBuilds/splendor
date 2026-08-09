@@ -57,7 +57,14 @@ set(OSL_EXTRA_ARGS
   -Dlibdeflate_DIR=${LIBDIR}/deflate/lib/cmake/libdeflate
 )
 
-if(NOT (APPLE OR BLENDER_PLATFORM_WINDOWS_ARM))
+# Splendor WP-0 workaround (2026-08-08): OSL's GPU (OptiX) path hardcodes
+# CUDA_TARGET_ARCH=sm_50 (Maxwell). This box is an NVIDIA GB10 (Grace-Blackwell,
+# compute cap 12.1) which requires CUDA 13, and CUDA 13 removed sm_50 support ->
+# "1 error generated when compiling for sm_50". GPU OSL is not needed to verify
+# the build. Disable OptiX here (CPU-only OSL) and defer proper Blackwell GPU
+# enablement (sm_120/sm_121 + OptiX) to a dedicated task. Re-enable by restoring
+# the original `if(NOT (APPLE OR BLENDER_PLATFORM_WINDOWS_ARM))` guard.
+if(FALSE)  # was: NOT (APPLE OR BLENDER_PLATFORM_WINDOWS_ARM)
   list(APPEND OSL_EXTRA_ARGS
     -DOSL_USE_OPTIX=ON
     -DCUDA_TARGET_ARCH=sm_50

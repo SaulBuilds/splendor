@@ -331,6 +331,17 @@ if(WITH_CODEC_FFMPEG)
   find_package(FFmpeg)
 
   set_and_warn_library_found("FFmpeg" FFMPEG_FOUND WITH_CODEC_FFMPEG)
+
+  # Splendor WP-0 fix (2026-08-08): the from-source FFmpeg (avutil/avdevice) is
+  # built with the DRM hwcontext because libdrm is present on this Ubuntu/aarch64
+  # host, so the final link needs libdrm — otherwise: undefined reference to
+  # `drmFreeVersion`. Blender's precompiled reference libs vendor this differently.
+  if(FFMPEG_FOUND)
+    find_library(DRM_LIBRARY NAMES drm)
+    if(DRM_LIBRARY)
+      list(APPEND FFMPEG_LIBRARIES ${DRM_LIBRARY})
+    endif()
+  endif()
 endif()
 
 if(WITH_FFTW3)
