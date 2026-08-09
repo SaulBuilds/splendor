@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Splendor local CI gate — runs the test suite before every push and blocks the
+# push if anything fails. Install with: bash scripts/ci/install-hooks.sh
+# Bypass in an emergency with: SPLENDOR_SKIP_CI=1 git push
+set -u
+
+if [ "${SPLENDOR_SKIP_CI:-0}" = "1" ]; then
+  echo "[splendor pre-push] SPLENDOR_SKIP_CI=1 — skipping the test gate."
+  exit 0
+fi
+
+REPO="$(git rev-parse --show-toplevel)"
+echo "[splendor pre-push] running local CI (bash scripts/ci/run_tests.sh)…"
+if bash "$REPO/scripts/ci/run_tests.sh"; then
+  exit 0
+fi
+echo "[splendor pre-push] tests failed — push blocked. Fix, or SPLENDOR_SKIP_CI=1 git push to override."
+exit 1
