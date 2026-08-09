@@ -10,7 +10,6 @@ reports honestly, mint (sensitive) requires HIC-1 approval.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 
 import bpy
 from bpy.props import FloatProperty, IntProperty, StringProperty
@@ -55,14 +54,6 @@ def build_router():
     router.register(OpenAICompatBackend("ollama", "http://127.0.0.1:11434/v1", "llama3", is_local=True))
     router.register(OpenAICompatBackend("llama.cpp", "http://127.0.0.1:8080/v1", "local", is_local=True))
     return router
-
-
-@dataclass(frozen=True)
-class _MintIntent(dsl.Intent):
-    action_class = "mint"   # sensitive → HIC-1 approve-each even when covered
-
-    def validate(self):
-        return None
 
 
 def _ensure_target(context):
@@ -214,17 +205,61 @@ class SPLENDOR_OT_ship(bpy.types.Operator):
         else:
             pin_status = "unconfigured (Citrate endpoint unset)"
 
-        mint = splendor.action_api.execute(_MintIntent(), principal="user",
-                                           grant=grant_for(scene, classes=("mint",)), ctx={})
+        # Mint is sensitive → HIC-1 gate (no approval supplied here → require-approval).
+        decision = hic.gate("mint", grant_for(scene, classes=("mint",)))
         scene.splendor_ship_cid = cid
         scene.splendor_ship_pin = pin_status
-        scene.splendor_ship_mint = mint.verdict.value
-        scene.splendor_run_state = 'SHIPPED' if mint.executed else 'AWAITING_MINT_APPROVAL'
-        if mint.executed:
+        if decision.verdict is hic.Verdict.PROCEED:
+            ref = MemoryChainAdapter("citrate").attest({"mint": cid, "provenance": prov["digest"]})
+            scene.splendor_ship_mint = f"minted {ref.id[:14]}…"
+            scene.splendor_run_state = 'SHIPPED'
             self.report({'INFO'}, f"Shipped · {cid[:16]}… · pin {pin_status}")
         else:
-            self.report({'WARNING'}, f"Mint {mint.verdict.value} [{mint.record.rule_code}] · "
-                                     f"attested+pin={pin_status}")
+            scene.splendor_ship_mint = decision.verdict.value
+            scene.splendor_run_state = 'AWAITING_MINT_APPROVAL'
+            self.report({'WARNING'}, f"Mint {decision.verdict.value} [{decision.rule_code}] · "
+                                     f"attested+pin={pin_status} · needs HIC-1 approval")
+        return {'FINISHED'}
+
+
+class SPLENDOR_OT_approve(bpy.types.Operator):
+    """Approve the pending HIC-1 action inline so it proceeds (never a bypass)."""
+
+    bl_idname = "splendor.approve"
+    bl_label = "Approve (HIC-1)"
+
+    def execute(self, context):
+        scene = context.scene
+        state = scene.splendor_run_state
+        if state == 'NEEDS_APPROVAL':
+            approval = hic.Approval("user", frozenset({"geometry", "scene_config"}))
+            obj = _ensure_target(context)
+            grant = grant_for(scene)
+            r1 = splendor.action_api.execute(dsl.SetPalette(colors=int(scene.splendor_palette_size)),
+                                             principal="user", grant=grant, ctx={"scene": scene},
+                                             approval=approval)
+            r2 = splendor.action_api.execute(dsl.SnapVertices(grid=float(scene.splendor_snap_grid)),
+                                             principal="user", grant=grant, ctx={"object": obj},
+                                             approval=approval)
+            if r1.executed and r2.executed:
+                scene.splendor_run_state = 'BUILT'
+                self.report({'INFO'}, f"Approved · built [{r1.record.rule_code}/{r2.record.rule_code}]")
+            else:
+                self.report({'WARNING'}, "Approval did not clear the build")
+            return {'FINISHED'}
+        if state == 'AWAITING_MINT_APPROVAL':
+            approval = hic.Approval("user", frozenset({"mint"}))
+            decision = hic.gate("mint", grant_for(scene, classes=("mint",)), approval)
+            if decision.verdict is hic.Verdict.PROCEED:
+                ref = MemoryChainAdapter("citrate").attest(
+                    {"mint": scene.splendor_ship_cid, "approved_by": "user"})
+                scene.splendor_ship_mint = f"minted {ref.id[:14]}… ({decision.rule_code})"
+                scene.splendor_run_state = 'SHIPPED'
+                self.report({'INFO'}, f"Approved · minted {ref.id[:14]}…")
+            else:
+                self.report({'WARNING'}, "Mint still not permitted")
+            return {'FINISHED'}
+        self.report({'INFO'}, "Nothing is pending approval")
         return {'FINISHED'}
 
 
@@ -242,5 +277,5 @@ class SPLENDOR_OT_apply_accent(bpy.types.Operator):
 
 CLASSES = (
     SPLENDOR_OT_describe, SPLENDOR_OT_plan, SPLENDOR_OT_build,
-    SPLENDOR_OT_score, SPLENDOR_OT_ship, SPLENDOR_OT_apply_accent,
+    SPLENDOR_OT_score, SPLENDOR_OT_approve, SPLENDOR_OT_ship, SPLENDOR_OT_apply_accent,
 )

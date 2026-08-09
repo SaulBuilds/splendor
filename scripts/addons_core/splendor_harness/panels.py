@@ -55,6 +55,14 @@ class SPLENDOR_PT_harness(bpy.types.Panel):
         row.operator("splendor.score", icon='CHECKMARK')
         row.operator("splendor.ship", icon='EXPORT')
 
+        # Inline HIC-1 approval — appears only when an action is pending (legible autonomy).
+        if scene.splendor_run_state in ('NEEDS_APPROVAL', 'AWAITING_MINT_APPROVAL'):
+            appr = layout.box()
+            appr.alert = True
+            what = "build" if scene.splendor_run_state == 'NEEDS_APPROVAL' else "mint"
+            appr.label(text=f"HIC-1 · {what} needs your approval", icon='ERROR')
+            appr.operator("splendor.approve", icon='CHECKMARK')
+
         # Retro HUD toggle (summoned overlay).
         layout.prop(scene, "splendor_hud_enabled", text="Retro HUD", toggle=True, icon='OVERLAY')
 

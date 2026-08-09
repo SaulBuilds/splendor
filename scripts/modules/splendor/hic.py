@@ -115,6 +115,38 @@ class PolicyBinding:
         return PolicyDecision(Verdict.PROCEED, HicLevel.UNGOVERNED, "RC-SPL-099", "ungoverned grant")
 
 
+@dataclass(frozen=True)
+class Approval:
+    """A human's explicit one-time approval for actions in given classes.
+
+    The HIC-1 counterpart: `require-approval` is the ask; an `Approval` is the
+    answer. It authorizes *proceed* for the named action classes and nothing more.
+    Mirrors quorum's 'an escalation proceeds once a human approves'.
+    """
+
+    approver: str
+    action_classes: frozenset
+
+    def matches(self, action_class: str) -> bool:
+        return action_class in self.action_classes
+
+
+def gate(action_class: str, grant: Optional[Grant], approval: "Optional[Approval]" = None) -> PolicyDecision:
+    """Policy check + human-approval override.
+
+    Runs :meth:`PolicyBinding.check`; if the verdict is ``require-approval`` and a
+    matching human :class:`Approval` is supplied, upgrades it to ``proceed`` and
+    records that it proceeded *because a human approved* (rule RC-SPL-020) — the
+    approval is the evidence, not a bypass.
+    """
+    decision = PolicyBinding.check(action_class, grant)
+    if (decision.verdict is Verdict.REQUIRE_APPROVAL
+            and approval is not None and approval.matches(action_class)):
+        return PolicyDecision(Verdict.PROCEED, decision.hic_level, "RC-SPL-020",
+                              f"approved by {approval.approver}")
+    return decision
+
+
 @dataclass
 class DecisionRecord:
     """One governed action's evidence unit (I-3: principal, grant, HIC level).
