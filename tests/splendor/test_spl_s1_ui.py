@@ -35,6 +35,10 @@ def check(cond, label):
 def main():
     os.environ.pop("SPLENDOR_MODEL_URL", None)
     os.environ.pop("SPLENDOR_CITRATE_PINNING", None)
+    # Keep the UI test hermetic: force IPFS unreachable so Ship exercises the honest
+    # failure path deterministically. The real pin→fetch round-trip is verified live in
+    # tests/splendor/test_s0_8_citrate_live.py against a running daemon.
+    os.environ["CITRATE_IPFS_API"] = "http://127.0.0.1:59999"
     splendor_harness.register()
     scene = bpy.context.scene
     try:
@@ -84,7 +88,7 @@ def main():
         print("[6] Ship → honest deploy: attest+pin free, mint HIC-1 gated, then Approve mints")
         bpy.ops.splendor.ship('EXEC_DEFAULT')
         check(scene.splendor_ship_cid.startswith("sha256:"), "asset content-addressed (CID)")
-        check("unconfigured" in scene.splendor_ship_pin, "pin honestly 'unconfigured' (no fake success)")
+        check("unreachable" in scene.splendor_ship_pin, "pin fails honestly when IPFS is unreachable (no fake CID)")
         check(scene.splendor_ship_mint == 'require-approval', "mint HIC-1 gated (require-approval)")
         check(scene.splendor_run_state == 'AWAITING_MINT_APPROVAL', "run state awaits mint approval")
         bpy.ops.splendor.approve('EXEC_DEFAULT')

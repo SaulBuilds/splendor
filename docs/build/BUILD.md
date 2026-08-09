@@ -182,3 +182,29 @@ Blender-runtime suites under `blender --background`. Exit non-zero on any failur
 
 **Headless GUI note:** the visual pass renders under `xvfb-run … blender --gpu-backend vulkan` (the NVIDIA
 GL path can't attach to a virtual X display; Vulkan can). See `docs/design/spl-s1-*.png`.
+
+## 8. Citrate deploy — local IPFS pinning (Ship)
+
+Citrate pinning **is** IPFS. The **Ship** step (`splendor.deploy.IpfsPinning`) pins the asset to a
+running IPFS daemon and records the content-addressed CID; unreachable fails honestly (never a faked CID).
+
+Install [Kubo](https://docs.ipfs.tech/install/command-line/) (`ipfs`), then:
+```
+ipfs init            # once
+ipfs daemon          # RPC API :5001, gateway :8080
+```
+Ship uses the Citrate config (`scripts/modules/splendor/deploy/citrate.py`) — defaults API
+`http://127.0.0.1:5001`, gateway `http://127.0.0.1:8080`. Override per environment:
+```
+export CITRATE_IPFS_API=http://127.0.0.1:5001
+export CITRATE_IPFS_GATEWAY=http://127.0.0.1:8080
+```
+`SPLENDOR_CITRATE_PINNING=<url>` overrides with a custom HTTP pinning service instead of the IPFS daemon.
+Verify end-to-end (pin → CID → fetch round-trip against a live daemon, skip-safe when none is running):
+```
+python3 tests/splendor/test_s0_8_citrate_live.py
+```
+
+**On-chain attestation** (provenance/mint) is honestly deferred: `CitrateEvmChain.attest()` raises
+`ChainUnavailable` until a non-custodial signer is wired — the live chain is read-only here (chain 40204,
+`rpc.citrate.ai`). Reads (`chain_id`, `block_number`) work today.
