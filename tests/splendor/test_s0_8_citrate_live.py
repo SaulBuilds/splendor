@@ -51,13 +51,18 @@ def main():
         check("signer" in msg or "unreachable" in msg,
               f"attest raised ChainUnavailable honestly ({'signer' if 'signer' in msg else 'unreachable'})")
 
-    print("[4] NEG CONTROL: IPFS pinning needs a daemon — honest when none is running")
-    ipfs = IpfsPinning(api_url="http://127.0.0.1:5001")
+    print("[4] IPFS pinning end-to-end when a daemon is reachable; honest when not")
+    ipfs = IpfsPinning()
+    asset = b"SPLENDOR glTF -- a low-poly PS1 potion, run #1"
     try:
-        ipfs.pin(b"SPLENDOR asset bytes")
-        print("     (an IPFS daemon is running — pin succeeded)")
+        ref = ipfs.pin(asset)
     except PinUnavailable:
-        check(True, "no IPFS daemon → PinUnavailable (honest, not fake)")
+        print("     SKIP — no IPFS daemon (`ipfs daemon`); PinUnavailable is honest, not faked")
+        ref = None
+    if ref is not None:
+        check(ref.cid.startswith("Qm") or ref.cid.startswith("b"), f"pinned → real IPFS CID {ref.cid}")
+        check(ipfs.fetch(ref.cid) == asset, "fetch round-trips the exact bytes (content-addressed)")
+        check(ipfs.pin(asset).cid == ref.cid, "re-pin is deterministic (same CID)")
 
     print()
     if _FAIL:

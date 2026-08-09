@@ -18,7 +18,7 @@ import splendor
 import splendor_eval as ev
 from splendor import dsl, hic
 from splendor.deploy import (
-    HttpPinning, MemoryChainAdapter, PinUnavailable, content_address, make_provenance,
+    HttpPinning, IpfsPinning, MemoryChainAdapter, PinUnavailable, content_address, make_provenance,
 )
 from splendor.models import (
     BackendUnavailable, CompletionRequest, Message, OpenAICompatBackend, Router,
@@ -200,15 +200,15 @@ class SPLENDOR_OT_ship(bpy.types.Operator):
                                workflow=None, meta={"prompt": scene.splendor_prompt})
         MemoryChainAdapter("citrate").attest(prov)
 
+        # Pin to Citrate IPFS. A custom pinning HTTP service (SPLENDOR_CITRATE_PINNING)
+        # overrides; otherwise the Citrate IPFS daemon/gateway (CITRATE_IPFS_API, default
+        # local Kubo). Unreachable fails honestly — never a faked CID.
         pin_url = os.environ.get("SPLENDOR_CITRATE_PINNING", "")
-        if pin_url:
-            try:
-                ref = HttpPinning(pin_url).pin(data)
-                pin_status = f"pinned {ref.cid[:18]}…"
-            except PinUnavailable as exc:
-                pin_status = f"unreachable: {exc}"
-        else:
-            pin_status = "unconfigured (Citrate endpoint unset)"
+        try:
+            ref = HttpPinning(pin_url).pin(data) if pin_url else IpfsPinning().pin(data)
+            pin_status = f"pinned {ref.cid}"
+        except PinUnavailable as exc:
+            pin_status = f"unreachable: {exc}"
 
         # Mint is sensitive → HIC-1 gate (no approval supplied here → require-approval).
         decision = hic.gate("mint", grant_for(scene, classes=("mint",)))
