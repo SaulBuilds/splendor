@@ -10,6 +10,8 @@ reports honestly, mint (sensitive) requires HIC-1 approval.
 from __future__ import annotations
 
 import os
+import tempfile
+from datetime import datetime, timezone
 
 import bpy
 from bpy.props import FloatProperty, IntProperty, StringProperty
@@ -18,8 +20,8 @@ import splendor
 import splendor_eval as ev
 from splendor import dsl, hic
 from splendor.deploy import (
-    ChainUnavailable, CitrateEvmChain, HttpPinning, IpfsPinning, MemoryChainAdapter,
-    PinUnavailable, content_address, make_provenance,
+    ChainUnavailable, CitrateEvmChain, GalleryItem, HttpPinning, IpfsPinning, MemoryChainAdapter,
+    PinUnavailable, content_address, make_provenance, publish_item,
 )
 from splendor.models import (
     BackendUnavailable, CompletionRequest, Message, OpenAICompatBackend, Router,
@@ -291,7 +293,55 @@ class SPLENDOR_OT_apply_accent(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class SPLENDOR_OT_publish_gallery(bpy.types.Operator):
+    """Publish the current piece to a self-contained, content-addressed web page (IPFS)."""
+
+    bl_idname = "splendor.publish_gallery"
+    bl_label = "Publish to Gallery"
+
+    def execute(self, context):
+        scene = context.scene
+        # The piece: the last retro/affine image if present.
+        img = bpy.data.images.get(scene.splendor_retro_last or "Splendor Retro")
+        png = b""
+        if img is not None and int(img.size[0]) > 0:
+            path = os.path.join(tempfile.gettempdir(), "splendor_gallery.png")
+            img.filepath_raw = path
+            img.file_format = 'PNG'
+            try:
+                img.save()
+                with open(path, "rb") as fh:
+                    png = fh.read()
+            except (RuntimeError, OSError):
+                png = b""
+        item = GalleryItem(
+            title=(scene.splendor_prompt or "Splendor piece")[:80],
+            prompt=scene.splendor_prompt or "",
+            image_png=png,
+            eval_score=float(scene.splendor_eval_score),
+            eval_passed=bool(scene.splendor_eval_passed),
+            palette=int(scene.splendor_palette_size),
+            tris=int(scene.splendor_eval_tris),
+            workflow="retro → eval → ship",
+            asset_cid=scene.splendor_ship_cid or "",
+            attestation=scene.splendor_ship_mint or "",
+            created=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        )
+        try:
+            ref, url = publish_item(item, IpfsPinning())
+        except PinUnavailable as exc:
+            scene.splendor_gallery_cid = ""
+            scene.splendor_gallery_url = f"unreachable: {exc}"[:120]
+            self.report({'WARNING'}, f"Publish failed honestly: {str(exc)[:70]}")
+            return {'FINISHED'}
+        scene.splendor_gallery_cid = ref.cid
+        scene.splendor_gallery_url = url
+        self.report({'INFO'}, f"Published · {url}")
+        return {'FINISHED'}
+
+
 CLASSES = (
     SPLENDOR_OT_describe, SPLENDOR_OT_plan, SPLENDOR_OT_build,
     SPLENDOR_OT_score, SPLENDOR_OT_approve, SPLENDOR_OT_ship, SPLENDOR_OT_apply_accent,
+    SPLENDOR_OT_publish_gallery,
 )
