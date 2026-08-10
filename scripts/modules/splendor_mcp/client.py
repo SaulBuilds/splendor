@@ -53,6 +53,12 @@ class MCPClient:
     def call_tool(self, name, arguments):
         return self._send("tools/call", {"name": name, "arguments": arguments})
 
+    def list_resources(self):
+        return self._send("resources/list")
+
+    def read_resource(self, uri):
+        return self._send("resources/read", {"uri": uri})
+
     def close(self):
         for closable in (self._writer, self._reader, self._sock):
             try:

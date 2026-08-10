@@ -65,16 +65,32 @@ class MCPServer:
         params = msg.get("params") or {}
         if method == "initialize":
             return _result(mid, {"protocolVersion": PROTOCOL_VERSION,
-                                 "capabilities": {"tools": {}}, "serverInfo": SERVER_INFO})
+                                 "capabilities": {"tools": {}, "resources": {}},
+                                 "serverInfo": SERVER_INFO})
         if method == "notifications/initialized":
             return None  # a notification — no response
         if method == "tools/list":
             return _result(mid, {"tools": _tools.list_specs()})
         if method == "tools/call":
             return self._call(mid, params)
+        if method == "resources/list":
+            return _result(mid, {"resources": _tools.list_resources()})
+        if method == "resources/read":
+            return self._read_resource(mid, params)
         if mid is not None:
             return _error(mid, -32601, f"method not found: {method}")
         return None
+
+    def _read_resource(self, mid, params):
+        uri = params.get("uri")
+        try:
+            data = _tools.read_resource(uri)
+        except KeyError:
+            return _error(mid, -32602, f"unknown resource: {uri}")
+        except Exception as exc:
+            return _error(mid, -32603, f"resource read failed: {exc}")
+        return _result(mid, {"contents": [{"uri": uri, "mimeType": "application/json",
+                                           "text": json.dumps(data)}]})
 
     def _call(self, mid, params):
         name = params.get("name")
@@ -82,6 +98,15 @@ class MCPServer:
         spec = _tools.get(name)
         if spec is None:
             return _error(mid, -32602, f"unknown tool: {name}")
+        if spec.readonly:
+            # Read-only tools carry no HIC gate (they never mutate the scene).
+            try:
+                payload = spec.read(args)
+            except Exception as exc:
+                return _result(mid, {"content": [{"type": "text", "text": f"read failed: {exc}"}],
+                                     "isError": True})
+            return _result(mid, {"content": [{"type": "text", "text": json.dumps(payload)}],
+                                 "isError": False})
         try:
             intent, ctx = spec.build(args)
         except Exception as exc:

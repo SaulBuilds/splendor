@@ -107,19 +107,26 @@ class CitrateEvmChain(ChainAdapter):
         return {"chain_id": self.chain_id(), "block": self.block_number(),
                 "rpc": self.rpc_url, "registry": self.registry}
 
-    def _eth_call(self, to: str, data: str) -> str:
-        return self._rpc("eth_call", [{"to": to, "data": data}, "latest"])
+    def _eth_call_word(self, to: str, data: str) -> str:
+        """eth_call returning one 32-byte word; empty ('0x') means the contract isn't
+        deployed / reverted here (e.g. a reset chain) — honest, not garbage."""
+        r = self._rpc("eth_call", [{"to": to, "data": data}, "latest"])
+        if not r or r == "0x" or len(r) < 66:
+            raise ChainUnavailable(
+                f"no contract data at {to} on chain {self.expected_chain_id} "
+                f"(empty result — not deployed on this chain state?)")
+        return r
 
     def governance(self) -> str:
         """The AgentDecisionRegistry's active governor (Governable.governance())."""
-        word = self._eth_call(self.registry, "0x5aa6e675")  # governance()
+        word = self._eth_call_word(self.registry, "0x5aa6e675")  # governance()
         return "0x" + word[-40:]
 
     def is_authorized_recorder(self, address: str) -> bool:
         """Whether `address` may write attestations (authorizedRecorders(address))."""
         addr = address[2:] if address.startswith("0x") else address
         data = "0xac9a5e9a" + addr.lower().rjust(64, "0")  # authorizedRecorders(address)
-        return int(self._eth_call(self.registry, data), 16) != 0
+        return int(self._eth_call_word(self.registry, data), 16) != 0
 
     def _decision_args(self, record: dict) -> list:
         """Map a provenance record → registerDecision(bytes32,string,bytes32) args.
