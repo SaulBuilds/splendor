@@ -92,10 +92,36 @@ class SPLENDOR_OT_train_enqueue(bpy.types.Operator):
             job.status = f"captured {entry.digest[:14]}…"
             job.digest = entry.digest
             self.report({'INFO'}, f"Captured workflow · library has {len(LIBRARY)}")
+        elif mod == "llm_lora":
+            job.status = _train_llm_lora(scene, job)
+            self.report({'INFO'}, job.status)
         else:
             job.status = _train.job_status(mod, comp, os.environ)
             self.report({'INFO'}, job.status)
         return {'FINISHED'}
+
+
+def _train_llm_lora(scene, job) -> str:
+    """Delegate a real LLM-LoRA finetune to the trainer process; honest if unavailable.
+
+    Dataset = each captured run's prompt → the parameters it used (teach the local
+    model to emit Splendor params for a prompt). Never fabricates an adapter."""
+    samples = samples_from_library()
+    if len(samples) < 2:
+        return f"capture ≥2 runs first (have {len(samples)})"
+    dataset = [{"prompt": s.prompt, "completion": json.dumps({"palette": s.palette})} for s in samples]
+    trainer = _train.resolve_trainer(os.environ)
+    if trainer is None:
+        return "no LLM-LoRA trainer configured (set SPLENDOR_LORA_TRAINER)"
+    steps = int(os.environ.get("SPLENDOR_LORA_STEPS", "60"))
+    try:
+        res = trainer.train(dataset, rank=8, steps=steps, lr=5e-3, seed=0)
+    except _train.TrainerUnavailable as exc:
+        return f"trainer unavailable: {str(exc)[:60]}"
+    job.digest = res["adapter_digest"]
+    scene.splendor_lora_digest = res["adapter_digest"]
+    return (f"trained · loss {res['initial_loss']:.2f}→{res['final_loss']:.2f} · "
+            f"{res['trainable_params']}/{res['total_params']} LoRA · {res['adapter_digest'][:14]}…")
 
 
 class SPLENDOR_OT_train_lora(bpy.types.Operator):

@@ -62,7 +62,7 @@ def main():
         check("trainer" in st and "not yet" in st, f"diffusion LoRA → honest 'trainer not yet wired' ({st})")
 
         print("[4] DePIN / cloud compute reports availability truthfully")
-        scene.splendor_train_modality = 'llm_lora'
+        scene.splendor_train_modality = 'geometry_model'
         scene.splendor_train_compute = 'depin'
         bpy.ops.splendor.train_enqueue('EXEC_DEFAULT')
         st = scene.splendor_train_jobs[-1].status
