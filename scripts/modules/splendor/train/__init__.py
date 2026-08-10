@@ -15,8 +15,11 @@ from dataclasses import dataclass
 
 from splendor.graph import dumps
 
-MODALITIES = ("diffusion_lora", "llm_lora", "workflow_capture", "geometry_model")
+MODALITIES = ("diffusion_lora", "llm_lora", "workflow_lora", "workflow_capture", "geometry_model")
 COMPUTES = ("local", "cloud", "depin")
+
+# The real, trainable modalities (deterministic loss + Eval-SDK-scored improvement).
+TRAINABLE = ("workflow_capture", "workflow_lora")
 
 
 @dataclass
@@ -59,10 +62,26 @@ def compute_available(kind: str, env) -> bool:
 
 
 def job_status(modality: str, compute: str, env) -> str:
-    """The honest status for a job — capture is ready; weights are not yet wired."""
+    """The honest status for a job — capture + Workflow LoRA are real; weight LoRAs
+    (LLM/diffusion adapting real model weights) still need a delegated trainer."""
     if modality == "workflow_capture":
         return "ready · weightless capture"
+    if modality == "workflow_lora":
+        return "ready · trains a low-rank adapter on captured runs"
     if not compute_available(compute, env):
         label = {"cloud": "cloud", "depin": "Citrate DePIN"}.get(compute, compute)
         return f"{label} compute unavailable — not configured"
-    return f"queued · requires a {modality} trainer (not yet wired)"
+    return f"queued · requires a {modality} weight trainer (not yet wired)"
+
+
+# Re-export the training-loop API (lazy-friendly: these pull in numpy).
+from .featurize import featurize, featurize_batch  # noqa: E402
+from .lora import LoRAAdapter, mse, train_lora  # noqa: E402
+from .loop import Sample, run_training_loop  # noqa: E402
+
+__all__ = [
+    "MODALITIES", "COMPUTES", "TRAINABLE", "LibraryEntry", "WorkflowLibrary",
+    "compute_available", "job_status",
+    "featurize", "featurize_batch", "LoRAAdapter", "mse", "train_lora",
+    "Sample", "run_training_loop",
+]
