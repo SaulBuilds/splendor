@@ -41,6 +41,18 @@ class SnapVertices(Intent):
 
 
 @dataclass(frozen=True)
+class FlatShade(Intent):
+    """Faceted flat shading — hard per-face normals, no smoothing (PS1/low-poly look)."""
+
+    faceted: bool = True
+    action_class = "geometry"
+
+    def validate(self) -> None:
+        if not isinstance(self.faceted, bool):
+            raise ValueError("faceted must be a bool")
+
+
+@dataclass(frozen=True)
 class SetPalette(Intent):
     """Set the scene's retro palette size (``colors`` in [1, 256])."""
 

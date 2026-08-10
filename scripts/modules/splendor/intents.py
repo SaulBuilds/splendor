@@ -31,6 +31,20 @@ def _exec_snap_vertices(intent: "dsl.SnapVertices", ctx: dict) -> str:
     return f"snapped {len(mesh.vertices)} verts to grid {g}"
 
 
+def _exec_flat_shade(intent: "dsl.FlatShade", ctx: dict) -> str:
+    import bpy  # noqa: F401
+
+    obj = ctx.get("object") or bpy.context.active_object
+    if obj is None or obj.type != "MESH":
+        raise RuntimeError("flat_shade requires a target mesh object")
+    mesh = obj.data
+    smooth = not intent.faceted
+    for p in mesh.polygons:
+        p.use_smooth = smooth
+    mesh.update()
+    return f"{'smooth' if smooth else 'flat'}-shaded {len(mesh.polygons)} faces"
+
+
 def _exec_set_palette(intent: "dsl.SetPalette", ctx: dict) -> str:
     import bpy
 
@@ -45,5 +59,6 @@ def _exec_set_palette(intent: "dsl.SetPalette", ctx: dict) -> str:
 # only module permitted to read this (asserted by the source-scan test, I-1).
 REGISTRY = {
     dsl.SnapVertices: _exec_snap_vertices,
+    dsl.FlatShade: _exec_flat_shade,
     dsl.SetPalette: _exec_set_palette,
 }
