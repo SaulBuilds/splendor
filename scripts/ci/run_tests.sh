@@ -31,6 +31,7 @@ BLENDER_TESTS=(
 # Pure-Python tests (test_s0_4 spawns Blender internally).
 PYTHON_TESTS=(
   tests/splendor/test_s0_4_mcp_server.py
+  tests/splendor/test_spl_mcp_depth.py
   tests/splendor/test_s0_5_backend_router.py
   tests/splendor/test_s0_6_eval_sdk.py
   tests/splendor/test_s0_7_workflow_graph.py
