@@ -9,14 +9,16 @@ and vertex/Gouraud lighting are the rest of P1.
 """
 from __future__ import annotations
 
-from . import palette, postprocess
+from . import palette, postprocess, raster
 from .postprocess import (
     bayer_matrix, dither_quantize, pixelate, reduce_color_depth, retro_frame,
 )
+from .raster import checker_sampler, image_sampler, rasterize
 
 __all__ = [
-    "palette", "postprocess", "quantize_image_gpu",
+    "palette", "postprocess", "raster", "quantize_image_gpu",
     "bayer_matrix", "dither_quantize", "pixelate", "reduce_color_depth", "retro_frame",
+    "checker_sampler", "image_sampler", "rasterize",
 ]
 
 

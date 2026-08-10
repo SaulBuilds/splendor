@@ -19,14 +19,49 @@ import os
 import tempfile
 
 import bpy
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, IntProperty, StringProperty
 
 import splendor.action_api
 from splendor import dsl
-from splendor.retro import retro_frame
+from splendor.retro import checker_sampler, image_sampler, rasterize, retro_frame
 from splendor.retro.palette import count_colors, generate_palette, rgb_from_rgba_flat
 
 from .flow import _ensure_target, grant_for
+
+
+def _project_mesh(obj, scene, width, height):
+    """Project `obj`'s triangles to screen space via the scene camera →
+    [((sx, sy, inv_w, u, v), ×3), …]. Triangles fully behind the camera are dropped.
+    Pure geometry math on top of bpy — the rasterizer itself stays bpy-free."""
+    cam = scene.camera
+    if cam is None:
+        return []
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    proj = cam.calc_matrix_camera(depsgraph, x=width, y=height)
+    view = cam.matrix_world.inverted()
+    pv = proj @ view
+    world = obj.matrix_world
+    mesh = obj.data
+    mesh.calc_loop_triangles()
+    uv = mesh.uv_layers.active.data if mesh.uv_layers.active else None
+    tris = []
+    for lt in mesh.loop_triangles:
+        verts = []
+        ok = True
+        for k in range(3):
+            co = world @ mesh.vertices[lt.vertices[k]].co
+            clip = pv @ co.to_4d()
+            if clip.w <= 1e-6:  # at/behind the camera plane
+                ok = False
+                break
+            ndc_x, ndc_y = clip.x / clip.w, clip.y / clip.w
+            sx = (ndc_x * 0.5 + 0.5) * width
+            sy = (ndc_y * 0.5 + 0.5) * height  # bottom-up, matches Blender image rows
+            u, v = (uv[lt.loops[k]].uv if uv else (0.0, 0.0))
+            verts.append((sx, sy, 1.0 / clip.w, float(u), float(v)))
+        if ok:
+            tris.append((verts[0], verts[1], verts[2]))
+    return tris
 
 
 class SPLENDOR_OT_retro_shade(bpy.types.Operator):
@@ -112,6 +147,55 @@ class SPLENDOR_OT_retro_render(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class SPLENDOR_OT_retro_affine(bpy.types.Operator):
+    """Software affine rasterizer — the PS1 'swimming texture' (no perspective-correct UV)."""
+
+    bl_idname = "splendor.retro_affine"
+    bl_label = "Retro Affine Render"
+
+    resolution: IntProperty(name="Resolution", default=160, min=16, max=512)
+    retro_post: BoolProperty(name="Dither + Palette", default=True)
+
+    def execute(self, context):
+        scene = context.scene
+        obj = context.active_object
+        if obj is None or obj.type != 'MESH':
+            self.report({'ERROR'}, "affine render needs an active mesh")
+            return {'CANCELLED'}
+        if scene.camera is None:
+            self.report({'ERROR'}, "affine render needs a scene camera")
+            return {'CANCELLED'}
+        w = int(self.resolution)
+        h = max(16, w * 3 // 4)  # 4:3, PS1-ish
+        tris = _project_mesh(obj, scene, w, h)
+        if not tris:
+            self.report({'ERROR'}, "no visible triangles to rasterize (mesh behind camera?)")
+            return {'CANCELLED'}
+        tex = bpy.data.images.get(scene.splendor_affine_texture) if scene.splendor_affine_texture else None
+        if tex is not None and len(tex.pixels) >= tex.size[0] * tex.size[1] * 4:
+            sample = image_sampler(list(tex.pixels), int(tex.size[0]), int(tex.size[1]))
+        else:
+            sample = checker_sampler(8)
+        fb = rasterize(tris, w, h, sample, perspective_correct=False)
+        if self.retro_post:
+            pal = generate_palette(int(scene.splendor_palette_size))
+            fb = retro_frame(fb, w, h, pal, pixel_factor=int(scene.splendor_retro_pixel),
+                             bayer_n=int(scene.splendor_retro_bayer), spread=float(scene.splendor_retro_spread))
+        name = "Splendor Affine"
+        img = bpy.data.images.get(name)
+        if img is not None and tuple(img.size) != (w, h):
+            bpy.data.images.remove(img)
+            img = None
+        if img is None:
+            img = bpy.data.images.new(name, w, h, alpha=True)
+        img.pixels = fb
+        img.update()
+        scene.splendor_retro_last = name
+        self.report({'INFO'}, f"Affine render '{name}' {w}×{h} · {len(tris)} tris"
+                              f"{' · dithered' if self.retro_post else ''}")
+        return {'FINISHED'}
+
+
 class SPLENDOR_PT_retro(bpy.types.Panel):
     """Retro Engine sub-panel — the PS1 passes."""
 
@@ -133,11 +217,14 @@ class SPLENDOR_PT_retro(bpy.types.Panel):
         col.separator()
         col.operator("splendor.retro_shade", icon='MOD_DECIM')
         col.operator("splendor.retro_render", icon='IMAGE_RGB').render_first = True
+        col.operator("splendor.retro_affine", icon='MOD_UVPROJECT')
+        col.prop(scene, "splendor_affine_texture")
         if scene.splendor_retro_last:
             col.label(text=f"→ {scene.splendor_retro_last}", icon='IMAGE_DATA')
 
 
-CLASSES = (SPLENDOR_OT_retro_shade, SPLENDOR_OT_retro_render, SPLENDOR_PT_retro)
+CLASSES = (SPLENDOR_OT_retro_shade, SPLENDOR_OT_retro_render, SPLENDOR_OT_retro_affine,
+           SPLENDOR_PT_retro)
 
 
 def register():
