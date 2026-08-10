@@ -127,6 +127,13 @@ class SPLENDOR_PT_deploy(bpy.types.Panel):
             paid.label(text=f"Mint verdict · {scene.splendor_ship_mint}",
                        icon=('CHECKMARK' if scene.splendor_ship_mint == 'proceed' else 'ERROR'))
         layout.operator("splendor.ship", text="Ship & witness", icon='EXPORT')
+
+        gal = layout.box()
+        gal.label(text="WEB GALLERY · self-contained · IPFS", icon='WORLD')
+        gal.operator("splendor.publish_gallery", text="Publish to Gallery", icon='URL')
+        if scene.splendor_gallery_url:
+            gal.label(text=scene.splendor_gallery_url[:44],
+                      icon=('CHECKMARK' if scene.splendor_gallery_cid else 'ERROR'))
         layout.label(text="EXPORT IS FREE · PROTOCOL FEES FUND STEWARDSHIP")
 
 

@@ -67,6 +67,8 @@ def _register_props():
     S.splendor_ship_cid = StringProperty(name="Ship CID", default="")
     S.splendor_ship_pin = StringProperty(name="Ship Pin", default="")
     S.splendor_ship_mint = StringProperty(name="Ship Mint", default="")
+    S.splendor_gallery_cid = StringProperty(name="Gallery CID", default="")
+    S.splendor_gallery_url = StringProperty(name="Gallery URL", default="")
 
 
 def _unregister_props():
@@ -77,7 +79,8 @@ def _unregister_props():
                  "splendor_eval_passed", "splendor_eval_digest", "splendor_eval_score",
                  "splendor_eval_tris", "splendor_ship_cid", "splendor_ship_pin",
                  "splendor_ship_mint", "splendor_retro_pixel", "splendor_retro_bayer",
-                 "splendor_retro_spread", "splendor_retro_last", "splendor_affine_texture"):
+                 "splendor_retro_spread", "splendor_retro_last", "splendor_affine_texture",
+                 "splendor_gallery_cid", "splendor_gallery_url"):
         if hasattr(S, name):
             delattr(S, name)
 
