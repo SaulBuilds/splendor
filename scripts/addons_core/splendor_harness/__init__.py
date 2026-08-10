@@ -56,6 +56,9 @@ def _register_props():
         name="Dither Spread", description="Dither strength (color nudge before palette snap)",
         default=0.12, min=0.0, max=1.0)
     S.splendor_retro_last = StringProperty(name="Last Retro Image", default="")
+    S.splendor_affine_texture = StringProperty(
+        name="Affine Texture", default="",
+        description="Image datablock to affine-map (blank = procedural checker)")
     S.splendor_hud_enabled = BoolProperty(name="Retro HUD", default=False, update=_hud_update)
     S.splendor_eval_passed = BoolProperty(name="Eval Passed", default=False)
     S.splendor_eval_digest = StringProperty(name="Eval Digest", default="")
@@ -74,7 +77,7 @@ def _unregister_props():
                  "splendor_eval_passed", "splendor_eval_digest", "splendor_eval_score",
                  "splendor_eval_tris", "splendor_ship_cid", "splendor_ship_pin",
                  "splendor_ship_mint", "splendor_retro_pixel", "splendor_retro_bayer",
-                 "splendor_retro_spread", "splendor_retro_last"):
+                 "splendor_retro_spread", "splendor_retro_last", "splendor_affine_texture"):
         if hasattr(S, name):
             delattr(S, name)
 

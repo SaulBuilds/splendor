@@ -40,7 +40,24 @@ Spread controls.
   the pipeline — pixelated, dithered, 13 colours under a 16-colour cap) vs.
   `spl-p1-original.png`.
 
+## Affine texture warp (the "swimming texture") — DONE
+
+Affine mapping is a *rasterization-time* effect (screen-linear UVs, no per-pixel perspective
+divide) — you can't post-process it from a perspective-correct render, and node materials
+can't express a `noperspective` varying. So `splendor.retro.raster` is a real **software
+affine rasterizer** (pure Python), exactly as the console did it. `SPLENDOR_OT_retro_affine`
+projects the active mesh through the scene camera and rasterizes it affine (then optionally
+runs the dither/palette pipeline).
+
+- `test_spl_p1_affine.py` — the negative control: on screen-parallel geometry affine ==
+  perspective-correct; the instant a triangle tilts, they diverge (the swim), and the affine
+  V is provably screen-linear while perspective V pulls toward the near edge.
+- `test_spl_p1_affine_engine.py` — the operator on a real tilted plane + camera; affine
+  diverges from a perspective-correct rasterization of the same projection.
+- Visual proof: `spl-p1-affine.png` (chunky foreground squares warping along the triangle
+  diagonal, no foreshortening) vs. `spl-p1-perspective.png` (squares foreshortening to the
+  horizon) — same floor, same camera.
+
 ## Still open (honest)
-- **Affine (perspective-incorrect) texture warp** — the swimming-texture hallmark. Needs a
-  per-vertex UV/W shader in EEVEE; scoped as the next P1 step, not in this seam.
-- The image pass is CPU (deterministic, testable); a GPU path can reuse `retro/gpu_pass.py`.
+- The rasterizer is CPU (deterministic, testable); a GPU path can reuse `retro/gpu_pass.py`.
+- Affine + Gouraud (per-vertex) lighting on the software path is a further step.
