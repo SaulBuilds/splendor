@@ -22,6 +22,7 @@ BLENDER_TESTS=(
   tests/splendor/test_spl_s2_nodes.py
   tests/splendor/test_spl_s2_backends.py
   tests/splendor/test_spl_s3_training.py
+  tests/splendor/test_spl_p1_retro_engine.py
   tests/splendor/test_blackwell_gpu.py
 )
 # Pure-Python tests (test_s0_4 spawns Blender internally).
@@ -33,6 +34,7 @@ PYTHON_TESTS=(
   tests/splendor/test_s0_8_chain_pinning.py
   tests/splendor/test_s0_8_citrate_live.py
   tests/splendor/test_s0_9_signer.py
+  tests/splendor/test_spl_p1_retro_image.py
 )
 
 pass=0; fail=0; skip=0

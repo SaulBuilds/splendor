@@ -13,7 +13,7 @@ from __future__ import annotations
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, StringProperty
 
-from . import backends, flow, hud, ops, panels, training
+from . import backends, flow, hud, ops, panels, retro, training
 
 bl_info = {
     "name": "Splendor Harness",
@@ -46,6 +46,16 @@ def _register_props():
     S.splendor_plan_backend = StringProperty(name="Plan Backend", default="")
     S.splendor_run_state = StringProperty(name="Run State", default="IDLE")
     S.splendor_retro_enabled = BoolProperty(name="Retro", default=True)
+    S.splendor_retro_pixel = IntProperty(
+        name="Pixelate", description="Low-res framebuffer block size (nearest upscale)",
+        default=4, min=1, max=32)
+    S.splendor_retro_bayer = IntProperty(
+        name="Dither", description="Ordered (Bayer) dither matrix size — 2, 4 or 8",
+        default=4, min=2, max=8)
+    S.splendor_retro_spread = FloatProperty(
+        name="Dither Spread", description="Dither strength (color nudge before palette snap)",
+        default=0.12, min=0.0, max=1.0)
+    S.splendor_retro_last = StringProperty(name="Last Retro Image", default="")
     S.splendor_hud_enabled = BoolProperty(name="Retro HUD", default=False, update=_hud_update)
     S.splendor_eval_passed = BoolProperty(name="Eval Passed", default=False)
     S.splendor_eval_digest = StringProperty(name="Eval Digest", default="")
@@ -63,7 +73,8 @@ def _unregister_props():
                  "splendor_run_state", "splendor_retro_enabled", "splendor_hud_enabled",
                  "splendor_eval_passed", "splendor_eval_digest", "splendor_eval_score",
                  "splendor_eval_tris", "splendor_ship_cid", "splendor_ship_pin",
-                 "splendor_ship_mint"):
+                 "splendor_ship_mint", "splendor_retro_pixel", "splendor_retro_bayer",
+                 "splendor_retro_spread", "splendor_retro_last"):
         if hasattr(S, name):
             delattr(S, name)
 
@@ -75,6 +86,7 @@ def register():
         bpy.utils.register_class(cls)
     bpy.utils.register_class(hud.SPLENDOR_OT_toggle_hud)
     panels.register()
+    retro.register()
     backends.register()
     training.register()
 
@@ -82,6 +94,7 @@ def register():
 def unregister():
     training.unregister()
     backends.unregister()
+    retro.unregister()
     panels.unregister()
     bpy.utils.unregister_class(hud.SPLENDOR_OT_toggle_hud)
     for cls in reversed(flow.CLASSES):

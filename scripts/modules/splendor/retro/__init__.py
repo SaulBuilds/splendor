@@ -9,9 +9,15 @@ and vertex/Gouraud lighting are the rest of P1.
 """
 from __future__ import annotations
 
-from . import palette
+from . import palette, postprocess
+from .postprocess import (
+    bayer_matrix, dither_quantize, pixelate, reduce_color_depth, retro_frame,
+)
 
-__all__ = ["palette", "quantize_image_gpu"]
+__all__ = [
+    "palette", "postprocess", "quantize_image_gpu",
+    "bayer_matrix", "dither_quantize", "pixelate", "reduce_color_depth", "retro_frame",
+]
 
 
 def quantize_image_gpu(*args, **kwargs):
