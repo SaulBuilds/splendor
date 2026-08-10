@@ -68,6 +68,8 @@ def job_status(modality: str, compute: str, env) -> str:
         return "ready · weightless capture"
     if modality == "workflow_lora":
         return "ready · trains a low-rank adapter on captured runs"
+    if modality == "llm_lora":
+        return "ready · delegated LLM-LoRA trainer (peft, via SPLENDOR_LORA_TRAINER)"
     if not compute_available(compute, env):
         label = {"cloud": "cloud", "depin": "Citrate DePIN"}.get(compute, compute)
         return f"{label} compute unavailable — not configured"
@@ -78,10 +80,13 @@ def job_status(modality: str, compute: str, env) -> str:
 from .featurize import featurize, featurize_batch  # noqa: E402
 from .lora import LoRAAdapter, mse, train_lora  # noqa: E402
 from .loop import Sample, run_training_loop  # noqa: E402
+# The delegated LLM-LoRA trainer is bpy/torch-free here (it shells out).
+from .trainer import SubprocessTrainer, TrainerUnavailable, default_trainer_script, resolve_trainer  # noqa: E402
 
 __all__ = [
     "MODALITIES", "COMPUTES", "TRAINABLE", "LibraryEntry", "WorkflowLibrary",
     "compute_available", "job_status",
     "featurize", "featurize_batch", "LoRAAdapter", "mse", "train_lora",
     "Sample", "run_training_loop",
+    "SubprocessTrainer", "TrainerUnavailable", "default_trainer_script", "resolve_trainer",
 ]

@@ -35,7 +35,24 @@ reports the Eval-SDK result + the content digest (`test_spl_s3_lora_ui.py`). On 
 capture the reported gain may be modest — that honesty is the point; the numeric proof of learning
 is the pure test.
 
+## LLM-LoRA (real model weights) — DONE, delegated
+
+Training an *LLM* LoRA needs torch/transformers/peft, which Blender's bundled Python doesn't have —
+the same wall the signer hit. So it's **delegated to a trainer process** (`splendor.train.trainer`)
+over a JSON protocol, exactly like the signer:
+
+- `scripts/trainers/llm_lora_trainer.py` — a **real peft finetune**. Only the LoRA matrices train
+  (the base is frozen); a real `adapter_model.safetensors` + content digest come back. Fully offline
+  by default (a tiny randomly-initialised GPT-2 + byte tokenizer, no downloads); pass a HF id as
+  `base` to adapt a pretrained model. Point Splendor at any trainer via `SPLENDOR_LORA_TRAINER`.
+- The `llm_lora` modality (Training panel) builds a *prompt → params* dataset from captured runs and
+  delegates. Blender has no torch, yet the product trains a real LoRA via the subprocess.
+
+Verified (`test_spl_s3_llm_lora.py`, `_ui.py`): capabilities report the real backend; only the
+adapter trains; loss falls; a real adapter + digest are produced; determinism; and honest
+`TrainerUnavailable` when the trainer/deps are absent — never a fabricated adapter.
+
 ## Still open (honest)
-- **LLM / diffusion weight LoRAs** (adapting real model weights) still report "needs a weight
-  trainer (not yet wired)" — a delegated trainer (llama.cpp / peft), like the signer, is the next
-  step. The Workflow LoRA is the real, self-contained one.
+- **Diffusion LoRAs** and the **geometry model** modality still report "needs a weight trainer" —
+  the same delegation pattern extends to them next.
+- A **llama.cpp `finetune`** backend for the trainer (alongside peft) when the binary is present.
