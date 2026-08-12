@@ -110,3 +110,88 @@ def publish_item(item: GalleryItem, pinning):
     html_bytes = render_item_page(item).encode("utf-8")
     ref = pinning.pin(html_bytes)
     return ref, gateway_url(pinning, ref.cid)
+
+
+def render_index(entries, title: str = "Splendor Gallery") -> str:
+    """A self-contained index page — a grid of pieces, each linking to its own page.
+
+    ``entries`` is a list of dicts: ``{title, thumb_png, href, subtitle, cid}``. Thumbnails
+    are embedded as ``data:`` URIs; links go to each piece's pinned page. No external
+    requests (CSP-safe / IPFS-servable). Untrusted text is escaped; ``href`` is emitted only
+    if it is an ``ipfs:`` / relative link or a gateway ``/ipfs/`` path (never arbitrary http).
+    """
+    cards = []
+    for e in entries:
+        thumb = (f'<img alt="" src="{_data_uri(e.get("thumb_png", b""), e.get("image_mime", "image/png"))}">'
+                 if e.get("thumb_png") else '<div class="noimg">◻</div>')
+        href = _safe_href(e.get("href", ""))
+        cid = html.escape(e.get("cid", ""))
+        card = (f'<figure>{thumb}<figcaption><b>{html.escape(e.get("title", "untitled"))}</b>'
+                f'<span>{html.escape(e.get("subtitle", ""))}</span>'
+                f'<code>{cid[:24]}</code></figcaption></figure>')
+        cards.append(f'<a class="card" href="{href}">{card}</a>' if href else f'<div class="card">{card}</div>')
+    grid = "".join(cards) or '<p class="empty">No pieces yet.</p>'
+    t = html.escape(title)
+    return (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        f"<title>{t} · Splendor</title><style>"
+        "*{box-sizing:border-box}"
+        "body{margin:0;background:#0b0b0c;color:#e8e8e6;font:15px/1.5 ui-monospace,Menlo,Consolas,monospace}"
+        ".wrap{max-width:1000px;margin:0 auto;padding:32px 20px}"
+        f"h1{{font-size:20px;letter-spacing:.04em;margin:0 0 4px;color:{_GREEN}}}"
+        ".sub{color:#8a8a86;margin:0 0 24px;font-size:12px;text-transform:uppercase;letter-spacing:.12em}"
+        ".grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}"
+        ".card{display:block;text-decoration:none;color:inherit;border:1px solid #1c1c1e;background:#0f0f11}"
+        f".card:hover{{border-color:{_GREEN}}}"
+        ".card figure{margin:0}"
+        ".card img,.noimg{width:100%;aspect-ratio:4/3;object-fit:cover;image-rendering:pixelated;"
+        "background:#000;display:flex;align-items:center;justify-content:center;color:#333;font-size:32px}"
+        "figcaption{padding:10px 12px;display:flex;flex-direction:column;gap:2px}"
+        "figcaption b{font-size:13px}figcaption span{color:#8a8a86;font-size:11px}"
+        f"figcaption code{{color:{_GREEN};font-size:10px;opacity:.8}}"
+        ".empty{color:#666}"
+        f"footer{{margin-top:28px;color:#5a5a56;font-size:11px;border-top:1px solid #1c1c1e;padding-top:12px}}"
+        f"footer b{{color:{_GREEN}}}"
+        "</style></head><body><div class=\"wrap\">"
+        f"<h1>{t}</h1><p class=\"sub\">Splendor · PS1 retro · {len(entries)} piece(s) · content-addressed</p>"
+        f"<div class=\"grid\">{grid}</div>"
+        "<footer>Published with <b>Splendor</b> · self-contained · each piece + this index pinned to IPFS</footer>"
+        "</div></body></html>"
+    )
+
+
+def _safe_href(href: str) -> str:
+    """Allow only ipfs:, relative, or gateway /ipfs/ links — never arbitrary schemes."""
+    if not href:
+        return ""
+    low = href.lower()
+    if low.startswith("ipfs://") or href.startswith("/ipfs/") or "/ipfs/" in href and low.startswith("http"):
+        return html.escape(href, quote=True)
+    if href.startswith("./") or href.startswith("../") or href.startswith("#"):
+        return html.escape(href, quote=True)
+    return ""
+
+
+def publish_gallery(items, pinning, title: str = "Splendor Gallery"):
+    """Pin each item's page, then pin an index linking them all.
+
+    Returns ``{"index": (PinRef, url), "items": [(item, PinRef, url), ...]}``. Raises
+    PinUnavailable honestly if the backend is unreachable — never a fabricated URL.
+    """
+    published = []
+    entries = []
+    for item in items:
+        ref, url = publish_item(item, pinning)
+        published.append((item, ref, url))
+        entries.append({
+            "title": item.title, "thumb_png": item.image_png, "image_mime": item.image_mime,
+            # Relative /ipfs/<cid> so links resolve on whatever gateway serves the index
+            # (portable across gateways; not a host-specific absolute URL).
+            "href": f"/ipfs/{ref.cid}", "cid": ref.cid,
+            "subtitle": (f"{item.eval_score:.2f}" + (" · PASS" if item.eval_passed else "")
+                         + (f" · pal {item.palette}" if item.palette else "")),
+        })
+    index_bytes = render_index(entries, title=title).encode("utf-8")
+    index_ref = pinning.pin(index_bytes)
+    return {"index": (index_ref, gateway_url(pinning, index_ref.cid)), "items": published}

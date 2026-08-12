@@ -35,6 +35,18 @@ the SPL-S1 mock pointed at.
   content-addressed IPFS URL (or fails honestly offline).
 - A sample page from the real Suzanne render: `docs/design/spl-web-gallery.html`.
 
+## Multi-piece index — DONE
+
+`render_index` builds a self-contained index (thumbnails embedded, **relative `/ipfs/<cid>`
+links** so they resolve on whatever gateway serves the index — portable, not host-specific).
+`publish_gallery(items, pinning)` pins each piece's page, then pins the index referencing them
+all. In the product: **Add to Gallery** accumulates the current piece into a per-scene
+collection, **Publish Gallery Index** publishes N pages + the linking index (`SPLENDOR_PT_gallery`).
+
+Verified (`test_spl_gallery_index.py`, `_ui.py`): self-contained (no external http; data URIs +
+relative links only), injection-safe hrefs (`javascript:` dropped), the published index references
+every pinned item CID and each page is independently fetchable. Sample:
+`docs/design/spl-web-gallery-index.html`.
+
 ## Still open (honest)
-- A multi-piece **index/gallery** page (grid of items) — `render_item_page` is per-piece today.
 - Pinning-service redundancy (a second pin target) and an ENS/DNSLink human name for the CID.

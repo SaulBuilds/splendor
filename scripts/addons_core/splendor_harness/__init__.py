@@ -13,7 +13,7 @@ from __future__ import annotations
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, StringProperty
 
-from . import backends, flow, hud, ops, panels, retro, training
+from . import backends, flow, gallery, hud, ops, panels, retro, training
 
 bl_info = {
     "name": "Splendor Harness",
@@ -93,6 +93,7 @@ def register():
     bpy.utils.register_class(hud.SPLENDOR_OT_toggle_hud)
     panels.register()
     retro.register()
+    gallery.register()
     backends.register()
     training.register()
 
@@ -100,6 +101,7 @@ def register():
 def unregister():
     training.unregister()
     backends.unregister()
+    gallery.unregister()
     retro.unregister()
     panels.unregister()
     bpy.utils.unregister_class(hud.SPLENDOR_OT_toggle_hud)
