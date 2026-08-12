@@ -23,7 +23,7 @@ llama.cpp agents) launch to talk to a running Blender instance natively;
 """
 from __future__ import annotations
 
-from . import client, server, tools
+from . import client, server, threaded, tools
 
-__all__ = ["client", "server", "tools"]
-__version__ = (0, 0, 2)
+__all__ = ["client", "server", "threaded", "tools"]
+__version__ = (0, 0, 3)

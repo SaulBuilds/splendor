@@ -41,9 +41,15 @@ def main():
         check(info["block"] > 0, f"eth_blockNumber > 0 (live: block {info['block']})")
 
         print("[2b] Re-wire drift guard: configured registries are deployed (skip if mid-reset)")
-        sizes = {k: chain.code_size(CITRATE_TESTNET[k])
-                 for k in ("agent_decision_registry", "attestation_registry", "provenance_registry")}
-        if all(s == 0 for s in sizes.values()):
+        try:
+            sizes = {k: chain.code_size(CITRATE_TESTNET[k])
+                     for k in ("agent_decision_registry", "attestation_registry", "provenance_registry")}
+        except ChainUnavailable as exc:
+            sizes = None
+            print(f"     SKIP — transient RPC error during read (unstable testnet): {str(exc)[:60]}")
+        if sizes is None:
+            pass
+        elif all(s == 0 for s in sizes.values()):
             # Whole federation empty → the testnet is mid-reset/redeploy; reads work, code isn't
             # back yet. Skip honestly rather than fail against an unstable testnet.
             print(f"     SKIP — federation not deployed on this chain state (block {info['block']}, redeploying)")
