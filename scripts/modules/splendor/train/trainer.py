@@ -38,8 +38,11 @@ def _repo_root() -> str:
     return os.path.abspath(os.path.join(here, os.pardir, os.pardir, os.pardir, os.pardir))
 
 
-def default_trainer_script() -> str:
-    return os.path.join(_repo_root(), "scripts", "trainers", "llm_lora_trainer.py")
+def default_trainer_script(kind: str = "llm") -> str:
+    name = {"llm": "llm_lora_trainer.py", "diffusion": "diffusion_lora_trainer.py"}.get(kind)
+    if name is None:
+        raise ValueError(f"unknown trainer kind: {kind!r}")
+    return os.path.join(_repo_root(), "scripts", "trainers", name)
 
 
 class SubprocessTrainer:
@@ -85,19 +88,30 @@ class SubprocessTrainer:
             "lr": lr, "output_dir": output_dir, "base": base, "seed": seed,
         })
 
+    def train_diffusion(self, images, rank: int = 8, steps: int = 120, lr: float = 5e-3,
+                        output_dir: str = "", seed: int = 0) -> dict:
+        return self._invoke({
+            "op": "train", "images": [list(im) for im in images], "rank": rank,
+            "steps": steps, "lr": lr, "output_dir": output_dir, "seed": seed,
+        })
 
-def resolve_trainer(env: dict | None = None):
-    """Return a configured LLM-LoRA trainer, or None if none is available.
 
-    ``SPLENDOR_LORA_TRAINER`` (a command) wins; otherwise the bundled reference
-    trainer under ``python3`` (which itself reports honestly if torch/peft are
-    missing). None only when neither exists.
+_TRAINER_ENV = {"llm": "SPLENDOR_LORA_TRAINER", "diffusion": "SPLENDOR_DIFFUSION_TRAINER"}
+
+
+def resolve_trainer(env: dict | None = None, kind: str = "llm"):
+    """Return a configured trainer for `kind` ('llm' or 'diffusion'), or None.
+
+    The per-kind env command wins (``SPLENDOR_LORA_TRAINER`` /
+    ``SPLENDOR_DIFFUSION_TRAINER``); otherwise the bundled reference trainer under
+    ``python3`` (which reports honestly if torch/peft are missing). None only when
+    neither exists.
     """
     env = env if env is not None else os.environ
-    command = env.get("SPLENDOR_LORA_TRAINER", "").strip()
+    command = env.get(_TRAINER_ENV.get(kind, ""), "").strip()
     if command:
         return SubprocessTrainer(shlex.split(command))
-    script = default_trainer_script()
+    script = default_trainer_script(kind)
     if os.path.exists(script):
         python = env.get("SPLENDOR_TRAINER_PYTHON", "python3")
         return SubprocessTrainer([python, script])

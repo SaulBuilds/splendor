@@ -95,6 +95,12 @@ class SPLENDOR_OT_train_enqueue(bpy.types.Operator):
         elif mod == "llm_lora":
             job.status = _train_llm_lora(scene, job)
             self.report({'INFO'}, job.status)
+        elif mod == "diffusion_lora":
+            job.status = _train_diffusion_lora(scene, job)
+            self.report({'INFO'}, job.status)
+        elif mod == "geometry_model":
+            job.status = _train_geometry(scene, job)
+            self.report({'INFO'}, job.status)
         else:
             job.status = _train.job_status(mod, comp, os.environ)
             self.report({'INFO'}, job.status)
@@ -122,6 +128,65 @@ def _train_llm_lora(scene, job) -> str:
     scene.splendor_lora_digest = res["adapter_digest"]
     return (f"trained · loss {res['initial_loss']:.2f}→{res['final_loss']:.2f} · "
             f"{res['trainable_params']}/{res['total_params']} LoRA · {res['adapter_digest'][:14]}…")
+
+
+def _img_to_gray8(name):
+    """Downsample a bpy image to an 8×8 grayscale flat vector (nearest) for a style LoRA."""
+    img = bpy.data.images.get(name)
+    if img is None or int(img.size[0]) == 0:
+        return None
+    w, h = int(img.size[0]), int(img.size[1])
+    px = list(img.pixels)
+    out = []
+    for gy in range(8):
+        for gx in range(8):
+            sx, sy = min(w - 1, gx * w // 8), min(h - 1, gy * h // 8)
+            i = (sy * w + sx) * 4
+            out.append((px[i] + px[i + 1] + px[i + 2]) / 3.0)
+    return out
+
+
+def _train_diffusion_lora(scene, job) -> str:
+    """Delegate a real diffusion (style) LoRA over the gallery/render images. Honest."""
+    names = [p.image for p in scene.splendor_gallery_items] or [scene.splendor_retro_last or "Splendor Retro"]
+    images = [g for g in (_img_to_gray8(n) for n in names) if g]
+    if not images:
+        return "no images (render or add pieces to the gallery first)"
+    trainer = _train.resolve_trainer(os.environ, kind="diffusion")
+    if trainer is None:
+        return "no diffusion trainer configured (set SPLENDOR_DIFFUSION_TRAINER)"
+    steps = int(os.environ.get("SPLENDOR_DIFFUSION_STEPS", "100"))
+    try:
+        res = trainer.train_diffusion(images, rank=8, steps=steps, lr=8e-3, seed=0)
+    except _train.TrainerUnavailable as exc:
+        return f"trainer unavailable: {str(exc)[:60]}"
+    job.digest = res["adapter_digest"]
+    scene.splendor_lora_digest = res["adapter_digest"]
+    return (f"trained · {len(images)} img · loss {res['initial_loss']:.2f}→{res['final_loss']:.2f} · "
+            f"{res['trainable_params']}/{res['total_params']} LoRA · {res['adapter_digest'][:14]}…")
+
+
+# Captured meshes (equal topology) for the geometry model — process-wide, like LIBRARY.
+GEO_MESHES = []
+
+
+def _train_geometry(scene, job) -> str:
+    """Capture the active mesh and (re)fit a PCA shape basis over captured meshes."""
+    obj = bpy.context.active_object
+    if obj is None or obj.type != 'MESH':
+        return "select a mesh to capture"
+    verts = [c for v in obj.data.vertices for c in v.co]
+    GEO_MESHES.append(verts)
+    lengths = {len(m) for m in GEO_MESHES}
+    if len(GEO_MESHES) < 2:
+        return f"captured 1 mesh — need ≥2 same-topology meshes to fit"
+    if len(lengths) != 1:
+        return f"captured {len(GEO_MESHES)} meshes but topologies differ ({sorted(lengths)}) — same vert count needed"
+    model, info = _train.fit_shape_basis(GEO_MESHES, k=4)
+    err = _train.reconstruction_error(model, GEO_MESHES)
+    job.digest = model.digest()
+    return (f"fit · {info['n']} meshes · k={info['k']} · var {info['variance_explained']:.2f} · "
+            f"err {err:.3f} · {model.digest()[:14]}…")
 
 
 class SPLENDOR_OT_train_lora(bpy.types.Operator):
