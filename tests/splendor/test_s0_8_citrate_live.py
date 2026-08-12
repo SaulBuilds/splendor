@@ -39,6 +39,12 @@ def main():
         info = chain.chain_info()
         check(info["chain_id"] == 40204, f"eth_chainId == 40204 (live)")
         check(info["block"] > 0, f"eth_blockNumber > 0 (live: block {info['block']})")
+
+        print("[2b] Re-wire drift guard: the configured registries are actually deployed")
+        for key in ("agent_decision_registry", "attestation_registry", "provenance_registry"):
+            addr = CITRATE_TESTNET[key]
+            size = chain.code_size(addr)
+            check(size > 0, f"{key} deployed on the live chain ({addr[:12]}… · {size} bytes of code)")
     else:
         print("     SKIP — rpc.citrate.ai unreachable (offline CI); config + honest paths still checked")
 

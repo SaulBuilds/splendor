@@ -32,7 +32,11 @@ from .pinning import PinRef, PinningBackend
 from .signer import resolve_signer
 
 # Public CitrateNetwork testnet config (from the federation address book,
-# citrate-chain-mpfix/cli/federation-contract.json — deployed on chain 40204).
+# citrate-chain*/cli/federation-contract.json — deployed on chain 40204). The testnet
+# was reset (2026-08-10) and redeployed deterministically at the SAME addresses (same
+# deployer + nonce order → same CREATE addresses); verified live (all registries carry
+# code). test_s0_8 asserts the configured contracts are actually deployed, so any future
+# address drift fails loudly rather than silently attesting into the void.
 CITRATE_TESTNET = {
     "chain_id": 40204,
     "chain_name": "Citrate Network",
@@ -45,6 +49,7 @@ CITRATE_TESTNET = {
     "agent_decision_registry": "0x728dbe86ce56123a5c1ddc248392940d7d2d30f9",
     "provenance_registry": "0xd903b7d47f8ba592c1e9ed9dc79ffb2ad97241f5",  # PartProvenanceRegistry (BFR)
     "attestation_registry": "0x4df26aae3619f449a142d237ed818ebf7c186ed5",  # TEEAttestationRegistry (TEE/GPU HW)
+    "ipfs_incentives": "0x209ac724f7b11d5d6e68cfe985cd628011fd8a1b",  # IPFSIncentives (pin rewards)
     "ipfs_gateway": "http://127.0.0.1:8080",   # env CITRATE_IPFS_GATEWAY; no hosted pin API
     "ipfs_api": "http://127.0.0.1:5001",
 }
@@ -127,6 +132,14 @@ class CitrateEvmChain(ChainAdapter):
         addr = address[2:] if address.startswith("0x") else address
         data = "0xac9a5e9a" + addr.lower().rjust(64, "0")  # authorizedRecorders(address)
         return int(self._eth_call_word(self.registry, data), 16) != 0
+
+    def code_size(self, address: str) -> int:
+        """Bytes of deployed code at `address` (0 = not a contract / not deployed here)."""
+        code = self._rpc("eth_getCode", [address, "latest"])
+        return 0 if not code or code == "0x" else (len(code) - 2) // 2
+
+    def is_deployed(self, address: str) -> bool:
+        return self.code_size(address) > 0
 
     def _decision_args(self, record: dict) -> list:
         """Map a provenance record → registerDecision(bytes32,string,bytes32) args.
