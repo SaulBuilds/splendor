@@ -25,6 +25,7 @@ BLENDER_TESTS=(
   tests/splendor/test_spl_s3_lora_ui.py
   tests/splendor/test_spl_s3_llm_lora_ui.py
   tests/splendor/test_spl_s3_diffgeo_ui.py
+  tests/splendor/test_spl_mcp_persistent.py
   tests/splendor/test_spl_p1_retro_engine.py
   tests/splendor/test_spl_p1_affine_engine.py
   tests/splendor/test_spl_web_gallery_ui.py

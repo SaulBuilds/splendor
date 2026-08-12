@@ -45,7 +45,22 @@ faceted; `get_state` / `eval_run` read-only; `resources/list` + `read`; and the 
 relaying `initialize` + `tools/list` (a notification correctly gets no reply). `test_s0_4` still
 proves the no-grant negative control (an external call → `require-approval`, scene unchanged).
 
+## Persistent in-GUI server — DONE
+
+A *running* Blender can serve external agents live. `splendor_mcp.threaded.ThreadedMCPServer`
+runs socket accept/read/write on background threads, but **marshals every JSON-RPC message to
+the main thread** — a `bpy.app.timers` callback drains a queue and runs `MCPServer.handle` (the
+governed path) there; the socket thread blocks on a per-request `Event` until answered. So a
+`tools/call` that mutates bpy runs on the main thread (never crashes on a worker thread).
+
+- In the product: **Start / Stop MCP Server** (the *MCP Server (live)* panel). The session
+  autonomy is the **scene HIC level** — the Control Bar governs external agents exactly as it
+  governs in-app actions; `Ungoverned` grants no session grant, so external acts require approval.
+- Real clients still connect via `python -m splendor_mcp bridge --port <p>`.
+
+Verified (`test_spl_mcp_persistent.py`): a background-thread client's `tools/call` (`flat_shade`)
+executes + facets on the main thread via the pump; `get_state` / `resources/read` marshal too; the
+timer registers/unregisters; the Start/Stop operators wire it and report the port.
+
 ## Still open (honest)
-- An in-GUI (threaded, main-thread-marshalled) persistent server for a *running* Blender instance
-  (today's server is `blender --background`, one connection).
 - HTTP-SSE transport alongside the stdio bridge.
