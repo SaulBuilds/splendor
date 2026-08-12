@@ -18,8 +18,8 @@ from splendor.graph import dumps
 MODALITIES = ("diffusion_lora", "llm_lora", "workflow_lora", "workflow_capture", "geometry_model")
 COMPUTES = ("local", "cloud", "depin")
 
-# The real, trainable modalities (deterministic loss + Eval-SDK-scored improvement).
-TRAINABLE = ("workflow_capture", "workflow_lora")
+# The real, trainable modalities (self-contained or delegated to a real trainer).
+TRAINABLE = ("workflow_capture", "workflow_lora", "llm_lora", "diffusion_lora", "geometry_model")
 
 
 @dataclass
@@ -70,6 +70,10 @@ def job_status(modality: str, compute: str, env) -> str:
         return "ready · trains a low-rank adapter on captured runs"
     if modality == "llm_lora":
         return "ready · delegated LLM-LoRA trainer (peft, via SPLENDOR_LORA_TRAINER)"
+    if modality == "diffusion_lora":
+        return "ready · delegated diffusion-LoRA trainer (DDPM+peft, style from your renders)"
+    if modality == "geometry_model":
+        return "ready · fits a PCA shape basis over captured meshes"
     if not compute_available(compute, env):
         label = {"cloud": "cloud", "depin": "Citrate DePIN"}.get(compute, compute)
         return f"{label} compute unavailable — not configured"
@@ -80,7 +84,8 @@ def job_status(modality: str, compute: str, env) -> str:
 from .featurize import featurize, featurize_batch  # noqa: E402
 from .lora import LoRAAdapter, mse, train_lora  # noqa: E402
 from .loop import Sample, run_training_loop  # noqa: E402
-# The delegated LLM-LoRA trainer is bpy/torch-free here (it shells out).
+from .geometry import ShapeModel, fit_shape_basis, reconstruction_error  # noqa: E402
+# The delegated trainers are bpy/torch-free here (they shell out).
 from .trainer import SubprocessTrainer, TrainerUnavailable, default_trainer_script, resolve_trainer  # noqa: E402
 
 __all__ = [
@@ -88,5 +93,6 @@ __all__ = [
     "compute_available", "job_status",
     "featurize", "featurize_batch", "LoRAAdapter", "mse", "train_lora",
     "Sample", "run_training_loop",
+    "ShapeModel", "fit_shape_basis", "reconstruction_error",
     "SubprocessTrainer", "TrainerUnavailable", "default_trainer_script", "resolve_trainer",
 ]

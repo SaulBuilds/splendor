@@ -24,6 +24,7 @@ BLENDER_TESTS=(
   tests/splendor/test_spl_s3_training.py
   tests/splendor/test_spl_s3_lora_ui.py
   tests/splendor/test_spl_s3_llm_lora_ui.py
+  tests/splendor/test_spl_s3_diffgeo_ui.py
   tests/splendor/test_spl_p1_retro_engine.py
   tests/splendor/test_spl_p1_affine_engine.py
   tests/splendor/test_spl_web_gallery_ui.py
@@ -44,6 +45,8 @@ PYTHON_TESTS=(
   tests/splendor/test_spl_p1_affine.py
   tests/splendor/test_spl_s3_lora.py
   tests/splendor/test_spl_s3_llm_lora.py
+  tests/splendor/test_spl_s3_geometry.py
+  tests/splendor/test_spl_s3_diffusion.py
   tests/splendor/test_spl_web_gallery.py
   tests/splendor/test_spl_gallery_index.py
 )

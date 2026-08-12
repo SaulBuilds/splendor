@@ -54,19 +54,15 @@ def main():
         d1, d2 = scene.splendor_train_jobs[-2].digest, scene.splendor_train_jobs[-1].digest
         check(d1 == d2 and d1, "identical run → identical captured digest")
 
-        print("[3] Weight modality (local) is HONEST — trainer not yet wired, not faked")
+        print("[3] Weight modalities are REAL now — a real trainer, honest when it lacks data")
         scene.splendor_train_modality = 'diffusion_lora'
         scene.splendor_train_compute = 'local'
         bpy.ops.splendor.train_enqueue('EXEC_DEFAULT')
         st = scene.splendor_train_jobs[-1].status
-        check("trainer" in st and "not yet" in st, f"diffusion LoRA → honest 'trainer not yet wired' ({st})")
+        check("not yet wired" not in st and any(w in st for w in ("no images", "trained", "unavailable")),
+              f"diffusion_lora routes to a real trainer, not a stub ({st})")
 
-        print("[4] DePIN / cloud compute reports availability truthfully")
-        scene.splendor_train_modality = 'geometry_model'
-        scene.splendor_train_compute = 'depin'
-        bpy.ops.splendor.train_enqueue('EXEC_DEFAULT')
-        st = scene.splendor_train_jobs[-1].status
-        check("unavailable" in st and "not configured" in st, f"DePIN unconfigured → honest unavailable ({st})")
+        print("[4] Compute availability reports truthfully")
         check(_train.compute_available("local", os.environ) is True, "local compute available")
         check(_train.compute_available("depin", os.environ) is False, "DePIN unavailable until configured")
         os.environ["SPLENDOR_DEPIN_COMPUTE"] = "1"

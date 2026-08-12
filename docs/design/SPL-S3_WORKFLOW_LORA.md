@@ -52,7 +52,21 @@ Verified (`test_spl_s3_llm_lora.py`, `_ui.py`): capabilities report the real bac
 adapter trains; loss falls; a real adapter + digest are produced; determinism; and honest
 `TrainerUnavailable` when the trainer/deps are absent — never a fabricated adapter.
 
+## Diffusion LoRA + geometry model — DONE
+
+- **Diffusion LoRA** (`diffusion_lora`) — delegated like the LLM trainer, but a real **DDPM
+  denoiser + peft LoRA** style finetune over your renders (`scripts/trainers/diffusion_lora_trainer.py`,
+  torch+peft, no `diffusers`, fully offline on flat pixel vectors). Only the LoRA trains; the
+  denoising loss falls; a real adapter + digest come back. `resolve_trainer(kind="diffusion")`
+  and `train_diffusion(images)`; the panel builds the image set from the gallery/last render.
+- **Geometry model** (`geometry_model`) — self-contained (numpy), a **PCA morphable shape basis**
+  over captured same-topology meshes (`splendor.train.geometry`): mean + top-k components,
+  reconstruction error → 0 at intrinsic rank, deterministic + content-addressed. The panel
+  captures the active mesh and refits.
+
+Verified: `test_spl_s3_geometry.py`, `test_spl_s3_diffusion.py`, `test_spl_s3_diffgeo_ui.py`.
+All five modalities are now real (capture · workflow-LoRA · LLM-LoRA · diffusion-LoRA · geometry).
+
 ## Still open (honest)
-- **Diffusion LoRAs** and the **geometry model** modality still report "needs a weight trainer" —
-  the same delegation pattern extends to them next.
-- A **llama.cpp `finetune`** backend for the trainer (alongside peft) when the binary is present.
+- A **llama.cpp `finetune`** backend for the LLM trainer (alongside peft) when the binary is present.
+- Conditioning the diffusion LoRA on captions/style tags (today's DDPM is unconditional).
